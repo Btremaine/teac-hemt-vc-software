@@ -6,6 +6,28 @@
 *.exe
 *.bin
 
+# Visual Studio C++ #
+#####################
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+# Visual C++ cache files
+ipch/
+*.aps
+*.ncb
+*.opensdf
+*.sdf
+*.cachefile
+
+
+
 # Logs and Databases #
 ######################
 *.log
