@@ -77,40 +77,37 @@ CHemtTest::CHemtTest(CString serial_num)
 				// ser pre-scalers & enable port
 				EnableWBport(module);
 				
+				unsigned char result[5];
+				int word;
+
 				while (1)
 				{
+					   
+
 				       Sleep(10);
-				    // === WRITE to SLAVE, works 5/17/15 ===
-					   WriteI2C_Reg(module, CMD_DBND, 0x03);
-					   Sleep(5);
-					   WriteI2C_Reg(module, CMD_TMR_CNT, 60);
-					   Sleep(5);
-					   WriteI2C_Reg(module, CMD_TON_CNT, 48);
-					   Sleep(5);
-					   WriteI2C_Reg(module, CMD_TOFF_CNT, 12);
+					   if (1)
+					   {
+
+						   // === WRITE to SLAVE, works 5/17/15 ===
+						   WriteI2C_Reg(module, CMD_DBND, 0x03);
+						   Sleep(5);
+						   WriteI2C_Reg(module, CMD_TMR_CNT, 60);
+						   Sleep(5);
+						   WriteI2C_Reg(module, CMD_TON_CNT, 48);
+						   Sleep(5);
+						   WriteI2C_Reg(module, CMD_TOFF_CNT, 12);
+					   }
 
 					// === END WRITE section, start READ from SLAVE ===
+					//
+				   
+					ReadI2C_Byte(module, CMD_TMR_CNT, &result[0]);
+					ReadI2C_Byte(module, CMD_TON_CNT, &result[1]);
+					ReadI2C_Byte(module, CMD_TOFF_CNT, &result[2]);
+					ReadI2C_Byte(module, CMD_DBND, &result[3]);
 
-					   /*
-					   // ------ load slave address
-					   SetTXR(module, (0xaa | 0x01)); // read
-					   Sleep(1);
-					   // enable start & write slave address
-					   SetCR(module, 0x90);
-					   Sleep(1);
-					   // ------- send data byte register to read
-					   SetTXR(module, 0x0D);          // Dbnd
-					   Sleep(1);
-					   SetCR(module, 0x10);
-					   Sleep(10);
-
-					   // ------- send data byte
-					   SetTXR(module, 0x03);
-					   Sleep(1);
-					   SetCR(module, 0x50);  // last byte
-					   Sleep(10);
-					*/
-
+					ReadI2C_DblByte(module, CMD_TEMP0, &word);
+					  
                     // === END READ section ====
 				}
 			}
@@ -881,7 +878,7 @@ int CHemtTest::LoadSelectedDeviceConfig(int module, int dut)
 // CMD_SR_REG:	Status register
 //
 // -----------------------------------------------------------------------------
-int CHemtTest::SetTXR(int module, int addr)
+int CHemtTest::WrtTXR(int module, int addr)
 {
 	// send 1 byte to the Wishbone intrerface TXR register
 	// module:	 # is set {0,1,2}
@@ -901,7 +898,7 @@ int CHemtTest::SetTXR(int module, int addr)
 }
 
 // -----------------------------------------------------------------------------
-int CHemtTest::SetCR(int module, int addr)
+int CHemtTest::WrtCR(int module, int addr)
 {
 	// send 1 byte to the Wishbone intrerface CR register
 	// module:	 # is set {0,1,2}
@@ -1046,25 +1043,25 @@ int CHemtTest::WriteI2C(int module, int i2c_reg, int data)
 	int lsb = data & 0x00ff;
 
 //	SendSlaveAddr(module, I2CADDR, true);
-	SetCR(module, 0x90);
+	WrtCR(module, 0x90);
 	// check TIP in SR register for completion
 	// check SR here
 	//
 
-	SetTXR(module, i2c_reg);	// send i2c_reg for data
-	SetCR(module, 0x10);		// start write
+	WrtTXR(module, i2c_reg);	// send i2c_reg for data
+	WrtCR(module, 0x10);		// start write
 	// check TIP in SR register for completion
 	// check SR here
 	//
 
-	SetTXR(module, lsb);		// send lsb data
-	SetCR(module, 0x10);		// start write
+	WrtTXR(module, lsb);		// send lsb data
+	WrtCR(module, 0x10);		// start write
 	// check TIP in SR register for completion
 	// check SR here
 	//
 
-	SetTXR(module, msb);		// send msb data
-	SetCR(module, 0x50);		// start last write
+	WrtTXR(module, msb);		// send msb data
+	WrtCR(module, 0x50);		// start last write
 	// check TIP in SR register for completion
 	// check SR here
 	//
@@ -1079,23 +1076,139 @@ int CHemtTest::WriteI2C_Reg(int module, unsigned char  reg, unsigned char data)
 
 	// === WRITE to SLAVE, works 5/17/15 ===
 	// ------ load slave address
-	SetTXR(module, (0xaa | 0x00));
+	WrtTXR(module, (I2CADDR | 0x00));
 	Sleep(1);
 	// enable start & write slave address
-	SetCR(module, 0x90);
+	WrtCR(module, 0x90);
 	Sleep(1);
 	// ------- send data byte register #
-	SetTXR(module, reg);
+	WrtTXR(module, reg);
 	Sleep(1);
-	SetCR(module, 0x10);
+	WrtCR(module, 0x10);
 	Sleep(5);
 	// ------- send data byte
-	SetTXR(module, data);
+	WrtTXR(module, data);
 	Sleep(1);
-	SetCR(module, 0x50);  // last byte
+	WrtCR(module, 0x50);  // last byte
 	Sleep(5);
 
 	return (0);
+}
+
+// --------------------------------------------------------------------------------
+int CHemtTest::ReadI2C_Byte(int module, unsigned char cmnd_reg, unsigned char* data)
+{
+	// single byte read commands to I2C interface
+
+	int val;
+	int error = 0;
+
+	int result;
+
+	// ------ load slave address & write bit
+	WrtTXR(module, (I2CADDR | 0x00));
+	// enable start & write slave address
+	WrtCR(module, 0x90);
+	// check ack here
+	getACK(module, &val);
+	// ------- send data byte register # to read
+	WrtTXR(module, cmnd_reg);
+	WrtCR(module, 0x10);
+	getACK(module, &val);
+	// ------- receive data byte
+	WrtTXR(module, (I2CADDR | 0x01));
+	getACK(module, &val);
+	WrtCR(module, 0x90);  // start repeated write to slave
+	//Sleep(1);
+	getACK(module, &val);
+	WrtCR(module, 0x28);  // start repeated read & NACK
+	getI2Cbyte(module, &result);
+
+	*data = (result);
+
+	return(error);
+
+}
+
+// --------------------------------------------------------------------------------
+int CHemtTest::ReadI2C_DblByte(int module, unsigned char cmnd_reg, int* data)
+{
+	// two byte read commands to I2C interface
+
+	int val;
+	int error = 0;
+
+	int lsb;
+	int msb;
+
+	// ------ load slave address & write bit
+	WrtTXR(module, (I2CADDR | 0x00));
+	// enable start & write slave address
+	WrtCR(module, 0x90);
+	// check ack here
+	getACK(module, &val);
+	// ------- send data byte register # to read
+	WrtTXR(module, cmnd_reg);
+	WrtCR(module, 0x10);
+	getACK(module, &val);
+	// ------- receive data byte
+	WrtTXR(module, (I2CADDR | 0x01));
+	getACK(module, &val);
+	WrtCR(module, 0x90);  // start repeated write to slave
+	//Sleep(1);
+	getACK(module, &val);
+	//
+	WrtCR(module, 0x20);  // start repeated read
+	getI2Cbyte(module, &lsb);
+	WrtCR(module, 0x28);  // start repeated read & NACK
+	getI2Cbyte(module, &msb);
+
+	*data = (msb<<8) | (lsb & 0xFF);
+
+	return(error);
+
+}
+// --------------------------------------------------------------------------------
+int CHemtTest::getACK(int module, int * data )
+{
+	// Read WB interface STATUS reg abd return ACK bit 7
+	// ACK = 1  (no ack received)
+	// ACK == 0 (ack received)
+
+
+	// read status byte from Wishbone interface
+	// module:	 # is set {0,1,2}
+
+	int error;
+
+	if (error = CheckNiDAQ())
+	{
+		return (error);
+	}
+
+	error = CDacIO->ReadDataChanByte(module, CMD_SR_REG, (0), data, true);
+
+	int bit;
+	bit = ((*data) >> 7) & 0x01;  // bit 7 is ack
+
+	return (error);
+}
+
+// --------------------------------------------------------------------------------
+int CHemtTest::getI2Cbyte(int module, int * val)
+{
+	// read 1 byte from the Wishbone intrerface RXR register
+	// module:		module #
+	// val:			pointer to int result
+
+	// select module and read byte
+
+	int error = 0;
+
+	error = CDacIO->ReadDataChanByte(module, CMD_TXR_REG, 0, val, true);
+	*val = (*val) & 0xFF;
+
+	return (error);
 }
 
 // --------------------------------------------------------------------------------

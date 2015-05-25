@@ -61,8 +61,8 @@ public:
 	int SetModSel(int);
 
 	// Wishbone I2C funcs
-	int SetTXR(int module, int value);
-	int SetCR(int module, int value);
+	int WrtTXR(int module, int value);
+	int WrtCR(int module, int value);
 	int SetCTL(int module, int value);
 	int ReadSR(int module, int * val);
 	int EnableWBport(int module);
@@ -71,14 +71,19 @@ public:
 	int ReadI2C(int module, int i2c_reg, int * data);
 	int WriteI2C(int module, int i2c_reg, int data);
 	int SendSlaveAddr(int module, int slave_addr, bool flag );
+	int getACK(int module, int * data);
+	int getI2Cbyte(int module, int * val);
 
 	int InitI2CModule(int module);
 	int WriteI2C_Reg(int module, unsigned char  reg, unsigned char data);
+	int ReadI2C_Byte(int module, unsigned char  reg, unsigned char* data);
+	int ReadI2C_DblByte(int module, unsigned char reg, int* data);
+
 
 
 // wishbone IO
 
-#define I2CADDR 0xAE
+#define I2CADDR 0xAA
 
 	enum wb_reg {
 		PRElo = 0x00,   // R/W
@@ -95,14 +100,15 @@ public:
 		CMD_SSR_ENB, 
 		CMD_TEMP0, 
 		CMD_TEMP1, 
-		CMD_TEMP3, 
-		CMD_TEMP4,
+		CMD_TEMP2, 
+		CMD_TEMP3,
+		CMD_TEMP4, 
 		CMD_TEMP5, 
 		CMD_TEMP6, 
 		CMD_TEMP7, 
 		CMD_TREF0, 
-		CMD_TREF1, 
-		CMD_TREF2,
+		CMD_TREF1,
+		CMD_TREF2, 
 		CMD_TREF3, 
 		CMD_DBND, 
 		CMD_TMR_CNT, 
