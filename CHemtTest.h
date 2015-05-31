@@ -72,13 +72,15 @@ public:
 	int WriteI2C(int module, int i2c_reg, int data);
 	int SendSlaveAddr(int module, int slave_addr, bool flag );
 	int getACK(int module, int * data);
+	int getTIP(int module, int * data);
+
 	int getI2Cbyte(int module, int * val);
 
 	int InitI2CModule(int module);
 	int WriteI2C_Reg(int module, unsigned char  reg, unsigned char data);
 	int ReadI2C_Byte(int module, unsigned char  reg, unsigned char* data);
 	int ReadI2C_DblByte(int module, unsigned char reg, int* data);
-
+	int WriteI2C_DblByte(int module, unsigned char reg, int data);
 
 
 // wishbone IO
@@ -110,6 +112,14 @@ public:
 		CMD_TREF1,
 		CMD_TREF2, 
 		CMD_TREF3, 
+		CMD_TOFST0,
+		CMD_TOFST1,
+		CMD_TOFST2,
+		CMD_TOFST3,
+		CMD_TOFST4,
+		CMD_TOFST5,
+		CMD_TOFST6,
+		CMD_TOFST7,
 		CMD_DBND, 
 		CMD_TMR_CNT, 
 		CMD_TON_CNT, 

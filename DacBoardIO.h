@@ -50,6 +50,8 @@
 // more i2c
 #define  CMD_PRELO_REG  (16 << 2)
 #define  CMD_PREHI_REG  (17 << 2)
+#define  CMD_RDRXR_REG  (18 << 2)
+
 
 //
 #define RD_HV_ADDR        ( 0 )
