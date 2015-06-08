@@ -79,9 +79,14 @@ public:
 	int InitI2CModule(int module);
 	int WriteI2C_Reg(int module, unsigned char  reg, unsigned char data);
 	int ReadI2C_Byte(int module, unsigned char  reg, unsigned char* data);
-	int ReadI2C_DblByte(int module, unsigned char reg, int* data);
 	int WriteI2C_DblByte(int module, unsigned char reg, int data);
+	
+	int ReadTempChan(int module, unsigned char chan, int * data);
+	int ReadTrefChan(int module, unsigned char chan, int * data);
+	int ReadI2CVersion(int module, int * data);
 
+
+	int ReadI2C_DblByte(int module, unsigned char reg, int* data);  // Needs debug, not working
 
 // wishbone IO
 
@@ -123,10 +128,52 @@ public:
 		CMD_DBND, 
 		CMD_TMR_CNT, 
 		CMD_TON_CNT, 
-		CMD_TOFF_CNT
+		CMD_TOFF_CNT,
+		CMD_TEMP0_LSB,
+		CMD_TEMP0_MSB,
+		CMD_TEMP1_LSB,
+		CMD_TEMP1_MSB,
+		CMD_TEMP2_LSB,
+		CMD_TEMP2_MSB,
+		CMD_TEMP3_LSB,
+		CMD_TEMP3_MSB,
+		CMD_TEMP4_LSB,
+		CMD_TEMP4_MSB,
+		CMD_TEMP5_LSB,
+		CMD_TEMP5_MSB,
+		CMD_TEMP6_LSB,
+		CMD_TEMP6_MSB,
+		CMD_TEMP7_LSB,
+		CMD_TEMP7_MSB,
+		CMD_TREF0_LSB,
+		CMD_TREF0_MSB,
+		CMD_TREF1_LSB,
+		CMD_TREF1_MSB,
+		CMD_TREF2_LSB,
+		CMD_TREF2_MSB,
+		CMD_TREF3_LSB,
+		CMD_TREF3_MSB,
+		CMD_VERSION_LSB,
+		CMD_VERSION_MSB
 	};
 
+	enum TC_CH {
+		TC_CH0 = 0,
+		TC_CH1,
+		TC_CH2,
+		TC_CH3,
+		TC_CH4,
+		TC_CH5,
+		TC_CH6,
+		TC_CH7
+	};
 
+	enum TC_REF {
+		TC_REF0 = 0,
+		TC_REF1,
+		TC_REF2,
+		TC_REF3
+	};
 
 #define FLOAT2FXD (10)
 #define UA2TEN_NA (100)

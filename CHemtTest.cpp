@@ -21,7 +21,7 @@
 // Set Gate register value							| done
 // Set ILEAK threshold level						| need work, calibrate
 
-// Read Temperatures (I2C)							| need to implement I2C
+// Read Temperatures (I2C)							| done, need calibration offset
 // Set TC heater enable								| done, need to verify
 // Set Tref values (I2C)							| working 5/31 reg <= (degC*100) ex 220.12C = 0x55FC
 // Set TC Servo Parameters (I2C)					| working 5/31 
@@ -56,9 +56,32 @@ CHemtTest::CHemtTest(CString serial_num)
 
 		CDacIO->SetAltOutChnls(TRUE);   // initialize output channels to push-pull
 
-#define debug_hdw 1
+		// check I2C comm
+		int val;
+		int nom = 0;
+
+		if (0)
+		{
+			// need better method to check for missing I2C
+			for (int i = 0; i < 3; i++)
+			{
+				ReadI2CVersion(i, &val);
+				if (val != 0xFFFF && val >= 0x1001)
+				{
+					nom++;
+				}
+
+			}
+		}
+
+
+
+
+
+#define debug_hdw 0
 		while (debug_hdw)
 		{
+			int tempfixed[16];
 			int val;
 			//ReadSensorChan(0, 20, &val); // VREF_CHAN
 			//Sleep(50);
@@ -117,25 +140,39 @@ CHemtTest::CHemtTest(CString serial_num)
 					WriteI2C_DblByte(module, CMD_TREF3, data);
 					;
 					;
-					data = 0x0040;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST0, data);
-					data = 0x0080;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST1, data);
-					data = 0x00C0;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST2, data);
-					data = 0x0100;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST3, data);
-					data = 0x0140;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST4, data);
-					data = 0x0180;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST5, data);
-					data = 0x01C0;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST6, data);
-					data = 0x0200;
+					data = 0x0000;
 					WriteI2C_DblByte(module, CMD_TOFST7, data);
 					;
 					;
-					ReadI2C_DblByte(module, CMD_TEMP0, &word);
+
+
+
+					//ReadI2C_DblByte(module, CMD_TEMP0, &word);
+
+					for (int i = 0; i < 8; i++)
+					{
+						ReadTempChan(module, TC_CH0+i, &tempfixed[i]);
+						Sleep(20);
+					}
+
+				    ReadTrefChan(module, TC_REF0, &tempfixed[8]);
+					ReadTrefChan(module, TC_REF1, &tempfixed[9]);
+					ReadTrefChan(module, TC_REF2, &tempfixed[10]);
+					ReadTrefChan(module, TC_REF3, &tempfixed[11]);
 					  
                     // === END READ section ====
 				}
@@ -574,19 +611,19 @@ int CHemtTest::SetTref(int module, HTR_ID htr, int value)
 	switch (htr)
 	{
 	case HTR1:
-		chan = 0;
+		chan = CMD_TREF0;
 		break;
 	case HTR2:
-		chan = 1;
+		chan = CMD_TREF1;
 		break;
 	case HTR3:
-		chan = 2;
+		chan = CMD_TREF2;
 		break;
 	case HTR4:
-		chan = 3;
+		chan = CMD_TREF3;
 		break;
 	default:
-		chan = 0;
+		chan = CMD_TREF0;
 	}
 	if (value > TMAX_LIMIT || value < 0)
 	{
@@ -594,8 +631,9 @@ int CHemtTest::SetTref(int module, HTR_ID htr, int value)
 	}
 	else
 	{
-		// TO DO: --- fix address  **FIX
-	// 	error = CDacIO->WriteDataChanByte(module, SET_TC_ADDR, chan, value);
+		// value written is degC * 128
+		value = (value * 128 / 10);
+		WriteI2C_DblByte(module, chan, value);
 	}
 
 	return error ;
@@ -637,9 +675,11 @@ int CHemtTest::ReadTref(int module, enum HTR_ID chan, int * data)
 	{
 		return (error) ;
 	}
-	// TO DO: --- fix address
+	ReadTrefChan(module, chan, data);
 
-    //error = CDacIO->ReadDataChanByte(module, SET_TC_ADDR, chan, data, true) ;
+	// convert
+	*data = (*data / 128) * FLOAT2FXD;
+
 #else
 	// data is fixed point degC * 10
 	*data = NO_NIDAQ_TREF;
@@ -661,12 +701,11 @@ int CHemtTest::ReadTemp(int module, enum TC_ID chan, int * data)
 #ifndef DEBUG_NO_NIDAQ
 	if (error = CheckNiDAQ()) { return (error); }
 
+	ReadTempChan(module, chan, data);
 
-	// TO DO: --- fix address // i2c work
-	//error = CDacIO->ReadDataChanByte(module, SET_TC_ADDR, chan, data, true);
+	// convert
+	*data = (*data / 128) * FLOAT2FXD;
 
-	*data = 1234;
-	if (chan == TC8) { *data = 250; }
 
 #else
 	// data is fixed point degC * 10
@@ -1146,7 +1185,6 @@ int CHemtTest::ReadI2C_Byte(int module, unsigned char cmnd_reg, unsigned char* d
 	getTIP(module, &val);
 	// ------- receive data byte
 	WrtTXR(module, (I2CADDR | 0x01));
-	getTIP(module, &val);
 	WrtCR(module, 0x90);  // start repeated write to slave
 	getTIP(module, &val);
 	WrtCR(module, 0x28);  // start read & NACK
@@ -1183,7 +1221,6 @@ int CHemtTest::ReadI2C_DblByte(int module, unsigned char cmnd_reg, int* data)
 	getTIP(module, &val);
 	// ------- receive data byte
 	WrtTXR(module, (I2CADDR | 0x01));
-	getTIP(module, &val);
 	WrtCR(module, 0x90);  // start repeated write to slave
 	getTIP(module, &val);
 	//
@@ -1283,7 +1320,7 @@ int CHemtTest::getTIP(int module, int * data)
 	int bit=1;
 	int count = 0;
 
-	while (bit && count<5 )
+	while (bit && count<20 )
 	{
 		error = CDacIO->ReadDataChanByte(module, CMD_SR_REG, (0), data, true);
 		bit = ((*data) >> 1) & 0x01;  // bit 1 is TIP
@@ -1317,52 +1354,23 @@ int CHemtTest::EnableTcServo(int module, int chan, bool fp)
 	// enable or disable heater temp control
 	// Uses I2C interface to TC board
 
-	unsigned char data = 0;
 	int error = 0;
 
 	unsigned char reg = CMD_SSR_ENB;
 
-	// get heater status in reg_stat     FIX 
-	unsigned char reg_stat = 0;
-	// need to update here ....
+	Module[module].Heater[chan] = fp; 
 
-	
-	unsigned char bit_field = 0;
-	unsigned char bit = 0;
+	// get heater status in reg_stat
+	unsigned char reg_stat = 0; 
 
-	if (fp) bit = 0x1;
-
-	switch (chan)
-	{
-	case HTR1: 
-		bit_field = !(1 << 0);
-		data = reg_stat & bit_field;
-		data = reg_stat | (bit << 0);
-		break;
-
-	case HTR2:
-		bit_field = !(1 << 1);
-		data = reg_stat & bit_field;
-		data = reg_stat | (bit << 1);
-		break;
-
-	case HTR3:
-		bit_field = !(1 << 2);
-		data = reg_stat & bit_field;
-		data = reg_stat | (bit << 2);
-
-	case HTR4:
-		bit_field = !(1 << 3);
-		data = reg_stat & bit_field;
-		data = reg_stat | (bit << 3);
-
-	default:
-		error = (-1);
-	}
+	reg_stat = Module[module].Heater[0];
+	reg_stat = reg_stat | (Module[module].Heater[1]<<1) ;
+	reg_stat = reg_stat | (Module[module].Heater[2] << 2);
+	reg_stat = reg_stat | (Module[module].Heater[3] << 3);
 
 	if (!error)
 	{
-		error = WriteI2C_Reg(module, reg, data);
+		error = WriteI2C_Reg(module, reg, reg_stat);
 	}
 
 	return (error);
@@ -1405,4 +1413,119 @@ int CHemtTest::SetServoParam(int module, enum ServoID id, unsigned char val)
 	
 }
 
+// --------------------------------------------------------------------------------
+int CHemtTest::ReadTempChan(int module, unsigned char chan, int * data)
+{
+	// read temperature using single byte reads then concantinate in word
 
+	int error = 0;
+
+	unsigned char lsb;
+	unsigned char msb;
+	unsigned char cmd_lsb;
+	unsigned char cmd_msb;
+
+
+	switch (chan)
+	{
+	case TC_CH0:
+		cmd_lsb = CMD_TEMP0_LSB;
+		cmd_msb = CMD_TEMP0_MSB;
+		break;
+	case TC_CH1:
+		cmd_lsb = CMD_TEMP1_LSB;
+		cmd_msb = CMD_TEMP1_MSB;
+		break;
+	case TC_CH2:
+		cmd_lsb = CMD_TEMP2_LSB;
+		cmd_msb = CMD_TEMP2_MSB;
+		break;
+	case TC_CH3:
+		cmd_lsb = CMD_TEMP3_LSB;
+		cmd_msb = CMD_TEMP3_MSB;
+		break;
+	case TC_CH4:
+		cmd_lsb = CMD_TEMP4_LSB;
+		cmd_msb = CMD_TEMP4_MSB;
+		break;
+	case TC_CH5:
+		cmd_lsb = CMD_TEMP5_LSB;
+		cmd_msb = CMD_TEMP5_MSB;
+		break;
+	case TC_CH6:
+		cmd_lsb = CMD_TEMP6_LSB;
+		cmd_msb = CMD_TEMP6_MSB;
+		break;
+	case TC_CH7:
+		cmd_lsb = CMD_TEMP7_LSB;
+		cmd_msb = CMD_TEMP7_MSB;
+		break;
+	}
+
+	ReadI2C_Byte(module, cmd_lsb, &lsb);
+	ReadI2C_Byte(module, cmd_msb, &msb);
+
+	*data = (msb << 8 | lsb);
+
+	return (error);
+
+}
+
+// --------------------------------------------------------------------------------
+int CHemtTest::ReadTrefChan(int module, unsigned char chan, int * data)
+{
+	// read temperature ref channel using single byte reads then concantinate in word
+
+	int error = 0;
+
+	unsigned char lsb;
+	unsigned char msb;
+	unsigned char cmd_lsb;
+	unsigned char cmd_msb;
+
+
+	switch (chan)
+	{
+	case TC_REF0:
+		cmd_lsb = CMD_TREF0_LSB;
+		cmd_msb = CMD_TREF0_MSB;
+		break;
+	case TC_REF1:
+		cmd_lsb = CMD_TREF1_LSB;
+		cmd_msb = CMD_TREF1_MSB;
+		break;
+	case TC_REF2:
+		cmd_lsb = CMD_TREF2_LSB;
+		cmd_msb = CMD_TREF2_MSB;
+		break;
+	case TC_REF3:
+		cmd_lsb = CMD_TREF3_LSB;
+		cmd_msb = CMD_TREF3_MSB;
+		break;
+	}
+
+	ReadI2C_Byte(module, cmd_lsb, &lsb);
+	ReadI2C_Byte(module, cmd_msb, &msb);
+
+	*data = (msb << 8 | lsb);
+
+	return (error);
+
+}
+
+// --------------------------------------------------------------------------------
+int CHemtTest::ReadI2CVersion(int module, int * data)
+{
+
+	int error = 0;
+	unsigned char lsb;
+	unsigned char msb;
+
+	ReadI2C_Byte(module, CMD_VERSION_LSB, &lsb);
+	ReadI2C_Byte(module, CMD_VERSION_MSB, &msb);
+
+	*data = (msb << 8 | lsb);
+
+	return (error);
+
+}

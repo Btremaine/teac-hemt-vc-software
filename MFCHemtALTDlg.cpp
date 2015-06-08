@@ -3949,33 +3949,43 @@ void CMFCHemtALTDlg::OnBnClickedCheck21()
 {
 	// TODO: Add your control notification handler code here
 	// Heater #1
+
+	int module = MBT->m_active_module;
+	bool flag;
+
 	if (IsDlgButtonChecked(IDC_CHECK21) == BST_CHECKED)
 	{  // turn on heater flag
-		int module = MBT->m_active_module;
+		flag = true;
 		MBT->Module[module].Heater[0] = true;
 	}
 	else
 	{  // turn off heater flag
-		int module = MBT->m_active_module;
+		flag = false;
 		MBT->Module[module].Heater[0] = false;
 	}
+
+	MBT->EnableTcServo(module, 0, flag);
 }
 
 // ---------------------------------------------------------------------
 void CMFCHemtALTDlg::OnBnClickedCheck22()
 {
-	// TODO: Add your control notification handler code here
 	// Heater #2
+	int module = MBT->m_active_module;
+	bool flag;
+
 	if (IsDlgButtonChecked(IDC_CHECK22) == BST_CHECKED)
 	{  // turn on heater flag
-		int module = MBT->m_active_module;
+		flag = true;
 		MBT->Module[module].Heater[1] = true;
 	}
 	else
 	{  // turn off heater flag
-		int module = MBT->m_active_module;
+		flag = false;
 		MBT->Module[module].Heater[1] = false;
 	}
+
+	MBT->EnableTcServo(module, 1, flag);
 }
 
 // ---------------------------------------------------------------------
@@ -3983,16 +3993,21 @@ void CMFCHemtALTDlg::OnBnClickedCheck23()
 {
 	// TODO: Add your control notification handler code here
 	// Heater #3
+	int module = MBT->m_active_module;
+	bool flag;
+
 	if (IsDlgButtonChecked(IDC_CHECK23) == BST_CHECKED)
 	{  // turn on heater flag
-		int module = MBT->m_active_module;
+		flag = true;
 		MBT->Module[module].Heater[2] = true;
 	}
 	else
 	{  // turn off heater flag
-		int module = MBT->m_active_module;
+		flag = false;
 		MBT->Module[module].Heater[2] = false;
 	}
+
+	MBT->EnableTcServo(module, 2, flag);
 }
 
 // ---------------------------------------------------------------------
@@ -4000,16 +4015,21 @@ void CMFCHemtALTDlg::OnBnClickedCheck24()
 {
 	// TODO: Add your control notification handler code here
 	// Heater #4
+	int module = MBT->m_active_module;
+	bool flag;
+
 	if (IsDlgButtonChecked(IDC_CHECK24) == BST_CHECKED)
 	{  // turn on heater flag
-		int module = MBT->m_active_module;
+		flag = true;
 		MBT->Module[module].Heater[3] = true;
 	}
 	else
 	{  // turn off heater flag
-		int module = MBT->m_active_module;
+		flag = false;
 		MBT->Module[module].Heater[3] = false;
 	}
+
+	MBT->EnableTcServo(module, 3, flag);
 }
 
 // -------------------------------------------------------------------------
