@@ -43,14 +43,13 @@ public:
 	int SetHvChanEn(int module, int chan, bool state);
 	int SetTref(int module, enum HTR_ID htr, int val) ;
 	int SetServoParam(int module, enum ServoID, unsigned char val);
-	int EnableTcServo(int module, int chan, bool fp);
-
 	int ReadHTword(int module, HT_WORD ht, int * val);
 	int ReadAnlg(int module, VoltID ch, int * val);
 	int ReadStatus(int module, int * stat );
 	int ReadILEAK(int module, int chan, int * val) ;
 	int ReadTref(int module, enum HTR_ID htr, int * val) ;
 	int ReadTemp(int module, enum TC_ID TC, int * val) ;
+	int EnableTcServos(int module);
 
 	int LoadSelectedDeviceConfig(int module, int Ndut);
 	int LoadConfigToFpga (int module ) ;
@@ -191,14 +190,15 @@ public:
 
 // gate voltage 
 #define GTE_DEFAULT  (-3.0*FLOAT2FXD)
-#define GT_COEFF0    (140.7)
-#define GT_COEFF1    (-7.6293)
+#define GT_COEFF0    (139.0)
+#define GT_COEFF1    (-5.969)
 // leakage (uAmps)
 #define ALRM_DEFAULT (100*UA2TEN_NA)
 #define ILK_DEFAULT  (0.1*UA2TEN_NA)
 #define ILK_COEFF0   (120)
 #define ILK_COEFF1   (2.35)
 // temperature
+#define HEATER_DEFAULT (false)
 #define TMAX_LIMIT   (205*FLOAT2FXD)
 #define TREF_DEFAULT (50*FLOAT2FXD)
 #define TREF_COEFF0  (125.0)

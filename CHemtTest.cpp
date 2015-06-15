@@ -56,6 +56,11 @@ CHemtTest::CHemtTest(CString serial_num)
 
 		CDacIO->SetAltOutChnls(TRUE);   // initialize output channels to push-pull
 
+		// set I2C pre-scalers & enable port (in case they are there)
+		EnableWBport(0);
+		EnableWBport(1);
+		EnableWBport(2);
+
 		// check I2C comm
 		int val;
 		int nom = 0;
@@ -78,7 +83,7 @@ CHemtTest::CHemtTest(CString serial_num)
 
 
 
-#define debug_hdw 0
+#define debug_hdw 1
 		while (debug_hdw)
 		{
 			int tempfixed[16];
@@ -96,7 +101,7 @@ CHemtTest::CHemtTest(CString serial_num)
 			SetHvEnable(module, false);
 			SetHvDac(module, 0, false);
 
-			if (1)  // debug I2C
+			if (0)  // debug I2C
 			{
 				// ser pre-scalers & enable port
 				EnableWBport(module);
@@ -179,10 +184,16 @@ CHemtTest::CHemtTest(CString serial_num)
 			}
 
 
-			if (0)
+			if (1)
 			{  // read SWin status
+				SetHvEnable(module, true);
+				for (int k = 0; k < 20; k++)
+				{
+					SetIalarm(module, 20, false);
+					SetHvChanEn(module, k, true);
+				}
 
-				while (0)
+				while (1)
 				{
 					// GetStatus(module, val)   +++ FIX
 					Sleep(2);
@@ -206,9 +217,9 @@ CHemtTest::CHemtTest(CString serial_num)
 				}
 			}
 
-			if (0) {
+			if (1) {
 				SetGate(module, 255, false);		     // ** R188 s/b 1k, not 11k **
-				// dac 0 == 16.3, dac 255 == -14.1
+				// dac 0 == 16.3, dac 255 == -16.26
 				// DAC working! 3/8/15
 				Sleep(3000);
 			}
@@ -337,6 +348,11 @@ void CHemtTest::InitModuleDefault()
 		Module[j].TREF[1] = (int) TREF_DEFAULT;
 		Module[j].TREF[2] = (int) TREF_DEFAULT;
 		Module[j].TREF[3] = (int) TREF_DEFAULT;
+
+		Module[j].Heater[0] = HEATER_DEFAULT;
+		Module[j].Heater[1] = HEATER_DEFAULT;
+		Module[j].Heater[2] = HEATER_DEFAULT;
+		Module[j].Heater[3] = HEATER_DEFAULT;
 
 		Module[j].Alarm = (int) ALRM_DEFAULT;
 
@@ -801,6 +817,24 @@ int CHemtTest::ReadSensorChan(int module, int chan, int * val )
 }
 
 // ---------------------------------------------------------------------------
+int CHemtTest::EnableTcServos(int module)
+{
+	// Enable TC servos based on heater status
+
+	int error = 0;
+	int reg;
+
+	reg = Module[module].Heater[0];
+	reg = reg | (Module[module].Heater[1] << 1);
+	reg = reg | (Module[module].Heater[2] << 2);
+	reg = reg | (Module[module].Heater[3] << 3);
+
+	error = WriteI2C_Reg(module, CMD_SSR_ENB, reg);
+
+	return (error);
+}
+
+// ---------------------------------------------------------------------------
 int CHemtTest::GetStatus(int module, int id, int * val)
 {
 	// execute status command
@@ -881,7 +915,7 @@ int CHemtTest::SetModSel(int module)
 // ----------------------------------------------------------------------------
 int CHemtTest::LoadConfigToFpga(int module)
 {
-
+	SetGate(module,  Module[module].gate);
 	SetHvDac(module, Module[module].HV);
 	HTR_ID j;
 	for (int i = 0; i < 4; i++)
@@ -1346,35 +1380,6 @@ int CHemtTest::getI2Cbyte(int module, int * val)
 	*val = (*val) & 0xFF;
 
 	return (error);
-}
-
-// --------------------------------------------------------------------------------
-int CHemtTest::EnableTcServo(int module, int chan, bool fp)
-{
-	// enable or disable heater temp control
-	// Uses I2C interface to TC board
-
-	int error = 0;
-
-	unsigned char reg = CMD_SSR_ENB;
-
-	Module[module].Heater[chan] = fp; 
-
-	// get heater status in reg_stat
-	unsigned char reg_stat = 0; 
-
-	reg_stat = Module[module].Heater[0];
-	reg_stat = reg_stat | (Module[module].Heater[1]<<1) ;
-	reg_stat = reg_stat | (Module[module].Heater[2] << 2);
-	reg_stat = reg_stat | (Module[module].Heater[3] << 3);
-
-	if (!error)
-	{
-		error = WriteI2C_Reg(module, reg, reg_stat);
-	}
-
-	return (error);
-
 }
 
 // --------------------------------------------------------------------------------

@@ -687,6 +687,9 @@ void CMFCHemtALTDlg::OnBnClickedButton1()  // Run/Pause button
 
 			XferConfigToFpga( module ) ;
 
+			// enable TC servos
+			MBT->EnableTcServos(module); 
+
 			//   open logfile
 			if (AfxMessageBox("Create new log file ?",MB_YESNO) == IDYES)
 			{
@@ -3964,7 +3967,6 @@ void CMFCHemtALTDlg::OnBnClickedCheck21()
 		MBT->Module[module].Heater[0] = false;
 	}
 
-	MBT->EnableTcServo(module, 0, flag);
 }
 
 // ---------------------------------------------------------------------
@@ -3985,7 +3987,6 @@ void CMFCHemtALTDlg::OnBnClickedCheck22()
 		MBT->Module[module].Heater[1] = false;
 	}
 
-	MBT->EnableTcServo(module, 1, flag);
 }
 
 // ---------------------------------------------------------------------
@@ -4007,7 +4008,6 @@ void CMFCHemtALTDlg::OnBnClickedCheck23()
 		MBT->Module[module].Heater[2] = false;
 	}
 
-	MBT->EnableTcServo(module, 2, flag);
 }
 
 // ---------------------------------------------------------------------
@@ -4029,7 +4029,6 @@ void CMFCHemtALTDlg::OnBnClickedCheck24()
 		MBT->Module[module].Heater[3] = false;
 	}
 
-	MBT->EnableTcServo(module, 3, flag);
 }
 
 // -------------------------------------------------------------------------
