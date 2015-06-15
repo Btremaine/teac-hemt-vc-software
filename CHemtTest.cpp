@@ -83,7 +83,7 @@ CHemtTest::CHemtTest(CString serial_num)
 
 
 
-#define debug_hdw 1
+#define debug_hdw 0
 		while (debug_hdw)
 		{
 			int tempfixed[16];
