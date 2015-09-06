@@ -937,20 +937,6 @@ int CniDAQ::NiDaqReadDacBoardByte(int module, int addr, int * data, bool flag)
 	return error ;
 }
 
-// --------------------------------------------------------------------------------------------
-int CniDAQ::NiDaqSetAdcChan(int module, int chan)
-{
-	// Write CMD_MUX_ADDR address to module with selected chan
-	// data field is a 'don't care'
-
-	int data = 0; // dummy data
-
-	int error = NiDaqWriteDacBoardChan(module, CMD_ADC_MUX, chan, data);
-
-	return error;
-
-}
-
 //---------------------------------------------------------------------------------------------
 int CniDAQ::NiDaqReadDacBoardAdc(int module, int chan, int * data, bool type)
 {
@@ -963,9 +949,16 @@ int CniDAQ::NiDaqReadDacBoardAdc(int module, int chan, int * data, bool type)
 	// --- start convert & read back adc value
 	int error = 0;
 
+	// set module ID select active for module
+	if (SetModSel(module))
+	{
+		error = -1;
+		return error;
+	}
+
 	if (type)
 	{
-		error = NiDaqSetAdcChan(module, chan);
+		error = NiDaqWriteDacBoardByte(module, CMD_ADC_MUX, chan);
 	}
 
 	if (!error) {
@@ -979,7 +972,6 @@ int CniDAQ::NiDaqReadDacBoardAdc(int module, int chan, int * data, bool type)
 int CniDAQ::NiDaqReadDacBoardAdcChan(int module, int addr, int * data)
 {
 	// Command to start ADC convert & reading of chan
-	// module NiDaqSetAdcChan previosuly called.
 	// need to select module prior to ADC convert
 
 	SetModSel(module);
@@ -989,38 +981,6 @@ int CniDAQ::NiDaqReadDacBoardAdcChan(int module, int addr, int * data)
 	return error;
 }
 
-// --------------------------------------------------------------------
-int CniDAQ::NiDaqWriteDacBoardChan(int module, int addr, int chan, int data)
-{
-    // write single chan data to module (8-bit)
-	// This is what is defined as a type 2 write only command
-	// It transmits the command byte + 2 data byte
-	// ////////////////////////////////////////////////////////////////
-
-	int error = 0;
-
-	// set module ID select active for module
-	if (SetModSel(module))
-	{
-		error = -1;
-		return error;
-	}
-	/* TO DO  **FIX**
-	// write CMD byte sequence followed by Data byte sequence
-	if (NiDaqWriteDacBoardByte( module, addr, data))
-	{
-		error = -1;
-		return error;
-
-	}
-	*/
-
-
-	// set module ID select inactive for module
-	error = SetModSel(NULL_MODULE);  // NULL module
-	
-	return error ;
-}
 // --------------------------------------------------------------------
 int CniDAQ::NiDaqWriteDacBoardWord(int module, int addr, int chan, int data)
 {
@@ -1116,13 +1076,7 @@ int CniDAQ::NiDaqWriteDacBoardWord(int module, int addr, int chan, int data)
 	return error;
 
 }
-// --------------------------------------------------------------------
-int CniDAQ::NiDaqReadDacBoardChan(int module, int addr, int chan, int * data, bool flag)
-{
-	int error = NiDaqReadDacBoardByte(module, (addr + chan), data, flag);
 
-	return error;
-}
 // --------------------------------------------------------------------
 int CniDAQ::NiDaqReadDacBoardWord(int module, int addr, int chan, int * data, bool flag)
 {

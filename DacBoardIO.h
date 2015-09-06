@@ -12,8 +12,8 @@
 // modified 12/16/2013 to keep device name dynamic & separate from the port names
 #define ADDR_PORT         "/port2/line0:7"
 // #define DOUT_PORT         "/port1/line0:7,/Dev1/port0/line0:3"
-#define DOUT_UPR_PORT        "/port1/line0:7,/"
-#define DOUT_LWR_PORT        "/port0/line0:3"
+#define DOUT_UPR_PORT     "/port1/line0:7,/"
+#define DOUT_LWR_PORT     "/port0/line0:3"
 
 #define MOD_SEL_PORT      "/port0/line4:5"
 #define MOD_CS_PORT       "/port0/line6"
@@ -26,27 +26,26 @@
 #define ALE_ADDR	      1
 #define ALE_DATA 		  0
 
-// TO DO: redefine for I2C IO
-// UPDATED 3-7-15
+// verified working 9/6/2015
 
-#define CMD_HV_ONOFF	(0 << 2)  // cmd + 1 byte, w only, (works 3/7, haven't checked HV supply though)
-#define CMD_GAIN		(1 << 2)  // cmd + 1 byte, w only, (works 3/7, toggles control)
-#define CMD_HV_DAC		(2 << 2)  // cmd + 1 byte, w only, (not working 3/7)
-#define CMD_BIAS_DAC	(3 << 2)  // cmd + 1 byte, w only, (not working 3/7)
-#define CMD_THR_DAC		(4 << 2)  // cmd + 1 byte, w only, (not working 3/7)
-#define CMD_HVCHN_ENBL	(5 << 2)  // cmd + 1 byte, w only, (works 3/7, toggles control)
-#define CMD_ADC_MUX		(6 << 2)  // cmd + 1 byte, w only, ?
-#define CMD_ADC_CNVRT	(7 << 2)  // cmd + 1 byte, w only, ?
+#define CMD_HV_ONOFF	(0 << 2)  // cmd + 1 byte, w only,
+#define CMD_GAIN		(1 << 2)  // cmd + 1 byte, w only,
+#define CMD_HV_DAC		(2 << 2)  // cmd + 1 byte, w only,
+#define CMD_BIAS_DAC	(3 << 2)  // cmd + 1 byte, w only,
+#define CMD_THR_DAC		(4 << 2)  // cmd + 1 byte, w only,
+#define CMD_HVCHN_ENBL	(5 << 2)  // cmd + 1 byte, w only,
+#define CMD_ADC_MUX		(6 << 2)  // cmd + 1 byte, w only, 
+#define CMD_ADC_CNVRT	(7 << 2)  // cmd + 1 byte, w only, 
 // i2c
-#define CMD_TXR_REG	    (8 << 2)  // cmd + 1 byte, w only, ?
-#define CMD_CR_REG		(9 << 2)  // cmd + 1 byte, w only, ?
-#define CMD_CTL_REG	    (10 << 2) // cmd + 1 byte, w only, ?
-#define CMD_SR_REG		(11 << 2) // cmd + 1 byte, w only, ?
+#define CMD_TXR_REG	    (8 << 2)  // cmd + 1 byte, w only, 
+#define CMD_CR_REG		(9 << 2)  // cmd + 1 byte, w only, 
+#define CMD_CTL_REG	    (10 << 2) // cmd + 1 byte, w only, 
+#define CMD_SR_REG		(11 << 2) // cmd + 1 byte, w only, 
 //
-#define	CMD_STATUS		(12 << 2) // cmd + ? bytes, r only, ?
-#define CMD_HVT_WD1     (13 << 2) // cmd + 1 byte, r only, ?
-#define CMD_HVT_WD2     (14 << 2) // cmd + 1 byte, r only, ?
-#define CMD_HVT_WD3     (15 << 2) // cmd + 1 byte, r only, ?
+#define	CMD_STATUS		(12 << 2) // cmd + ? bytes, r only,
+#define CMD_HVT_WD1     (13 << 2) // cmd + 1 byte, r only,
+#define CMD_HVT_WD2     (14 << 2) // cmd + 1 byte, r only,
+#define CMD_HVT_WD3     (15 << 2) // cmd + 1 byte, r only,
 // more i2c
 #define  CMD_PRELO_REG  (16 << 2)
 #define  CMD_PREHI_REG  (17 << 2)
@@ -109,18 +108,13 @@ public:
 	// Operations
 public:
 
-
 	CniDAQ * niDAQwrap ;
 
 	int ReadDataByte(int module, int addr, int * data) ;    // reads data during first ALE/CS
 	int WriteDataByte(int module, int addr, int data) ;
-
 	int ReadDataChanByte(int module, int addr, int chan, int * data, bool flag) ;
-	int WriteDataChanByte(int module, int addr, int chan, int data) ;
-
 	int ReadDataChanWord(int module, int addr, int chan, int * data, bool flag);
 	int WriteDataChanWord(int module, int addr, int chan, int data);
-
 	int ReadAdcChan(int module, int chan, int * value, bool type=true) ;
 	int SetDigOutType(const char * chnl, bool iotype) ;
 	int SetAltOutChnls(bool iotype) ;

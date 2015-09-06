@@ -76,15 +76,12 @@ public:
 	int     NiDaqWriteDacBoardByte(int module, int addr, int data) ; // write addr & data 
 	int     NiDaqWriteDacBoardAddr(int module, int addr);  // write addr only
 	int     NiDaqReadDacBoardByte(int module, int addr, int * data, bool flag) ;
-	int     NiDaqWriteDacBoardChan(int module, int addr, int chan, int data) ;
-	int     NiDaqReadDacBoardChan(int module, int addr, int chan, int * data, bool flag) ;
 
 	int     NiDaqWriteDacBoardWord(int module, int addr, int chan, int data);
 	int     NiDaqReadDacBoardWord(int module, int addr, int chan, int * data, bool flag);
 
 	int     NiDaqReadDacBoardAdcChan(int module, int chan, int * data) ;
 	int		NiDaqReadDacBoardAdc(int module, int chan, int * data, bool type);
-	int		NiDaqSetAdcChan(int module, int chan);
 
 	int     GetModSelValue(int module, unsigned char * value) ;
 	int     SetModSel(int module) ;

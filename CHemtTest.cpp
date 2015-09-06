@@ -33,7 +33,8 @@
 // Read Ileak value (Read ADC converted to fp)      | need calibration
 
 
-// NOTE: MODULE 2 ON THE GUI DISPLAY IS BRD_ID [2'b10] and module 1 in software.
+// NOTE: *** MODULE 2 ON THE GUI DISPLAY IS BRD_ID [2'b10] and module 1 in software. ***
+//           MODULE 1 ON THE GUI DISPLAY IS BRD_ID [2'b01] and module 0 in software.     
 
 
 // ---------------------------------------------------------------------------
@@ -61,39 +62,43 @@ CHemtTest::CHemtTest(CString serial_num)
 		EnableWBport(1);
 		EnableWBport(2);
 
-		// check I2C comm
-		int val;
-		int nom = 0;
 
-		if (0)
+#define debug_hdw 0
+while (debug_hdw)
 		{
-			// need better method to check for missing I2C
-			for (int i = 0; i < 3; i++)
+			int tempfixed[16];
+			int val;
+			int nom = 0;
+
+			int module = 0;			// {0,1 or 2)
+
+			int dut = 0;
+
+			// check I2C comm
+
+			while (1)   // not working 9/5/2015
 			{
-				ReadI2CVersion(i, &val);
+				// need better method to check for missing I2C
+				val = -1;
+				
+				ReadI2CVersion(module, &val);
+				Sleep(50);
 				if (val != 0xFFFF && val >= 0x1001)
 				{
 					nom++;
 				}
-
 			}
-		}
 
 
 
-
-
-#define debug_hdw 0
-		while (debug_hdw)
-		{
-			int tempfixed[16];
-			int val;
-			//ReadSensorChan(0, 20, &val); // VREF_CHAN
-			//Sleep(50);
+			while (1)
+			{
+				ReadSensorChan(module, HV_ANLG, &val); //
+				Sleep(50);
+			}
 
 			int fp_value = -155;  // -15.5v
-			int module = 1;
-			int dut = 0;
+
 
 
 			// *** turn off high voltage
@@ -101,7 +106,7 @@ CHemtTest::CHemtTest(CString serial_num)
 			SetHvEnable(module, false);
 			SetHvDac(module, 0, false);
 
-			if (0)  // debug I2C
+			if (1)  // debug I2C
 			{
 				// ser pre-scalers & enable port
 				EnableWBport(module);
@@ -163,8 +168,6 @@ CHemtTest::CHemtTest(CString serial_num)
 					WriteI2C_DblByte(module, CMD_TOFST7, data);
 					;
 					;
-
-
 
 					//ReadI2C_DblByte(module, CMD_TEMP0, &word);
 
@@ -1465,6 +1468,9 @@ int CHemtTest::ReadTempChan(int module, unsigned char chan, int * data)
 		cmd_lsb = CMD_TEMP7_LSB;
 		cmd_msb = CMD_TEMP7_MSB;
 		break;
+	default:
+		cmd_lsb = CMD_TEMP7_LSB;
+		cmd_msb = CMD_TEMP7_MSB;
 	}
 
 	ReadI2C_Byte(module, cmd_lsb, &lsb);
@@ -1507,6 +1513,9 @@ int CHemtTest::ReadTrefChan(int module, unsigned char chan, int * data)
 		cmd_lsb = CMD_TREF3_LSB;
 		cmd_msb = CMD_TREF3_MSB;
 		break;
+	default:
+		cmd_lsb = CMD_TREF0_LSB;
+		cmd_msb = CMD_TREF0_MSB;
 	}
 
 	ReadI2C_Byte(module, cmd_lsb, &lsb);
@@ -1527,6 +1536,7 @@ int CHemtTest::ReadI2CVersion(int module, int * data)
 	unsigned char msb;
 
 	ReadI2C_Byte(module, CMD_VERSION_LSB, &lsb);
+	Sleep(20);
 	ReadI2C_Byte(module, CMD_VERSION_MSB, &msb);
 
 	*data = (msb << 8 | lsb);

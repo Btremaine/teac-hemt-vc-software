@@ -575,9 +575,13 @@ void CMFCHemtALTDlg::OnBnClickedRadio6()
 			m_operation = TEST1_MODE;  // "test mode"
 			int module = MBT->m_active_module;
 			MBT->Module[module].op_mode = m_operation;
+			
+			// Read temperature settings & display
+			AcquireLogData(module);
+			aquireTempValues(module);
+			UpdateTempVal(module);				// displays
 			SetTestMode(m_operation);
-			MBT->SetHvDac( module, MBT->Module[module].HV);
-			MBT->SetGate(module, MBT->Module[module].gate);
+
 		}
 		else {
 			m_operation = IDLE_MODE; // "idle"
@@ -779,6 +783,8 @@ int CMFCHemtALTDlg::SetTestMode( int mode )
 		pButt = (CButton*)GetDlgItem(IDC_RADIO6) ;  // Test 1
 		pButt->SetFocus() ;
 	    pButt->SetCheck(true) ;
+		MBT->SetHvDac(module, MBT->Module[module].HV);
+		MBT->SetGate(module, MBT->Module[module].gate);
 		MBT->SetHvEnable(module,true) ;  // PSU ON
 		Sleep(100);
 		DisplayHighVolts(module);
@@ -788,6 +794,8 @@ int CMFCHemtALTDlg::SetTestMode( int mode )
 		pButt = (CButton*)GetDlgItem(IDC_RADIO7);  // Test 2
 		pButt->SetFocus();
 		pButt->SetCheck(true);
+		MBT->SetHvDac(module, 0);
+		MBT->SetGate(module, 0);
 		MBT->SetHvEnable(module, false);  // PSU OFF
 		Sleep(100);
 		DisplayHighVolts(module);
@@ -3170,17 +3178,7 @@ int CMFCHemtALTDlg::AcquireLogData(int module, bool flag)
 	// ---------------------------------------------------------------------
 	// sample Temperature adc readings
 
-	for (int j = TC1; j < TCE; j++)
-	{
-		int val;
-		if (MBT->ReadTemp(module, (enum TC_ID) j, &val))
-		{
-			AfxMessageBox("Error reading Temp chan");
-			return (-1);
-		}
-
-		MBT->Module[module].TMEA[j] = val;  // 10ths of a deg C
-	}
+	aquireTempValues(module);
 
 	// ---------------------------------------------------------------------
 	// sample & average v_hv
@@ -3305,6 +3303,26 @@ int CMFCHemtALTDlg::WriteLogFile(int module, bool flag)
 	Beep(750,100) ;   // ####
 
 	return (retVal) ;
+}
+
+// --------------------------------------------------------------------------
+int CMFCHemtALTDlg::aquireTempValues(int module)
+{
+	// sample Temperature adc readings
+
+	for (int j = TC1; j < TCE; j++)
+	{
+		int val;
+		if (MBT->ReadTemp(module, (enum TC_ID) j, &val))
+		{
+			AfxMessageBox("Error reading Temp chan");
+			return (-1);
+		}
+
+		MBT->Module[module].TMEA[j] = val;  // 10ths of a deg C
+	}
+
+	return (0);
 }
 
 // --------------------------------------------------------------------------
@@ -4038,15 +4056,23 @@ void CMFCHemtALTDlg::OnBnClickedRadio7()
 	// Operating mode: Test 2 - stop auto mode & turn OFF PSU
 	if (CheckIdle())
 	{
+		int module = MBT->m_active_module;
+
 		if (IsDlgButtonChecked(IDC_RADIO7))
 		{
 			m_operation = TEST2_MODE;  // "test mode"
-			MBT->Module[MBT->m_active_module].op_mode = m_operation;
+			
+			MBT->Module[module].op_mode = m_operation;
+
+			// Read temperature settings & display
+			AcquireLogData(module);
+			aquireTempValues(module);
+			UpdateTempVal(module);				// displays
 			SetTestMode(m_operation);
 		}
 		else {
 			m_operation = IDLE_MODE; // "idle"
-			MBT->Module[MBT->m_active_module].op_mode = m_operation;
+			MBT->Module[module].op_mode = m_operation;
 			SetTestMode(m_operation);
 		}
 	}

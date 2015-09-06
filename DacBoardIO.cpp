@@ -18,7 +18,7 @@ CDacBoardIO::CDacBoardIO(void)
 // there is a 8-bit multiplexed address/data bus to the FPGA and a 12-bit
 // data bus from the FPGA
 //
-// DOUT[11..0]       data output:
+//		DOUT[11..0]  data output:
 //		DOUT[7..0]   output from FPGA									NiDAQ P1[7..0]
 //		DOUT[11..8]  output from FPGA									NiDAQ P0[3..0]
 //
@@ -72,7 +72,6 @@ CDacBoardIO::CDacBoardIO(void)
 
 }
 
-
 CDacBoardIO::~CDacBoardIO()
 {
 }
@@ -113,7 +112,7 @@ int CDacBoardIO::ReadDataByte(int module, int addr, int * data)
 	// read 8-bit byte from module (generic)
 	int stat = 0;
 #ifndef DEBUG_NO_NIDAQ
-	// flag ture if module to be selected else false
+	// flag true if module to be selected else false
 	bool flag = true;
 	stat = niDAQwrap->NiDaqReadDacBoardByte(module, addr, data, flag) ;
 #endif
@@ -140,23 +139,11 @@ int CDacBoardIO::ReadDataChanByte(int module, int addr, int chan, int * data, bo
 	// read 8-bit register from selected module & channel
 	int stat = 0;
 #ifndef DEBUG_NO_NIDAQ
-	stat = niDAQwrap->NiDaqReadDacBoardChan(module, addr, chan, data, flag) ;
+	stat = ReadDataByte(module, addr, data);
 #endif
 	return stat ; 
 }
-// --------------------------------------------------------------------
-int CDacBoardIO::WriteDataChanByte(int module, int addr, int chan, int data)
-{
-	// write 8-bit register to selected module & channel with data
-	// This is what is defined as a type 2 write only command
-	// It transmits the command byte + 2 data bytes
-	int stat = 0;
-#ifndef DEBUG_NO_NIDAQ
-	stat = niDAQwrap->NiDaqWriteDacBoardChan(module, addr, chan, data) ;
-#endif
 
-	return stat ;
-}
 // --------------------------------------------------------------------
 int CDacBoardIO::ReadDataChanWord(int module, int addr, int chan, int * data, bool flag)
 {

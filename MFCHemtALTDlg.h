@@ -83,6 +83,7 @@ private:
 	int ChangeLogFileName(int module, LPTSTR value);
 
 	int CnvrtAdc2DegC(enum TC_ID TC, int val, float *degC);
+	int aquireTempValues(int module);
 
 	int m_cfg_Ndut ;
 	int m_numModules ;
