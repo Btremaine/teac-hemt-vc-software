@@ -41,7 +41,10 @@ private:
 	int SetTestMode(int mode) ;
 	int GetTestMode(void) ;
 	int DisplayResults(int module) ;
-	int UpdateIlkLimVal(int module) ;
+	int UpdateIlkLimValDisp(int module) ;
+	int UpdateIlkLimValStruct(int module);
+	int UpdateIdSampleValDisp(int module);
+	int UpdateIdSampleValStruct(int module);
 	int InitSampleID(int module);
 	int InitEnables(int module);
 	int InitResTime(int module);

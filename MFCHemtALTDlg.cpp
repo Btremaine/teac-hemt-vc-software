@@ -261,7 +261,7 @@ BOOL CMFCHemtALTDlg::OnInitDialog()
 
 	// update configuration display for current selected module
 	UpdateCurrentCfgDisplayfromMemory(MBT->m_active_module, m_cfg_Ndut) ;
-	UpdateIlkLimVal(MBT->m_active_module);
+	UpdateIlkLimValDisp(MBT->m_active_module);
 	InitResTime(MBT->m_active_module);
 	InitSampleID(MBT->m_active_module);
 	InitEnables(MBT->m_active_module);
@@ -504,7 +504,8 @@ void CMFCHemtALTDlg::OnBnClickedRadio1()
 	MBT->m_active_module = 0 ;
 	m_operation = MBT->Module[MBT->m_active_module].op_mode;
 	UpdateModuleDisplay(MBT->m_active_module);
-	UpdateIlkLimVal(MBT->m_active_module);
+	UpdateIlkLimValDisp(MBT->m_active_module);
+	UpdateIdSampleValDisp(MBT->m_active_module);
 	UpdateSensVal(MBT->m_active_module);
 	InitResTime(MBT->m_active_module);
 	UpdateAndDispTotalTime(MBT->m_active_module);
@@ -518,7 +519,8 @@ void CMFCHemtALTDlg::OnBnClickedRadio2()
 	MBT->m_active_module = 1 ;
 	m_operation = MBT->Module[MBT->m_active_module].op_mode;
 	UpdateModuleDisplay(MBT->m_active_module);
-	UpdateIlkLimVal(MBT->m_active_module);
+	UpdateIlkLimValDisp(MBT->m_active_module);
+	UpdateIdSampleValDisp(MBT->m_active_module);
 	UpdateSensVal(MBT->m_active_module);
 	InitResTime(MBT->m_active_module);
 	UpdateAndDispTotalTime(MBT->m_active_module);
@@ -532,7 +534,8 @@ void CMFCHemtALTDlg::OnBnClickedRadio3()
 	MBT->m_active_module = 2 ;
 	m_operation =   MBT->Module[2].op_mode ;
 	UpdateModuleDisplay(MBT->m_active_module);
-	UpdateIlkLimVal(MBT->m_active_module);
+	UpdateIlkLimValDisp(MBT->m_active_module);
+	UpdateIdSampleValDisp(MBT->m_active_module);
 	UpdateSensVal(MBT->m_active_module);
 	InitResTime(MBT->m_active_module);
 	UpdateAndDispTotalTime(MBT->m_active_module);
@@ -1407,7 +1410,180 @@ int CMFCHemtALTDlg::UpdateAndDispTotalTime(int module)
 }
 
 // -----------------------------------------------------------------------------
-int CMFCHemtALTDlg::UpdateIlkLimVal(int module)
+int CMFCHemtALTDlg::UpdateIdSampleValDisp(int module)
+{
+	// update display of ID Sample text from Module struc 
+	int retVal = 0;
+	CEdit* pEdit;
+
+	for (int i = 0; i<Ndut; i++)
+	{
+		// get string from struc
+		CString str = (MBT->Module[module].SampleID[i]);
+
+		// get ptr to edit control
+		switch (i)
+		{
+		case 0:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT112);
+			break;
+		case 1:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT115);
+			break;
+		case 2:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT118);
+			break;
+		case 3:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT121);
+			break;
+		case 4:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT124);
+			break;
+		case 5:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT127);
+			break;
+		case 6:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT130);
+			break;
+		case 7:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT133);
+			break;
+		case 8:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT136);
+			break;
+		case 9:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT139);
+			break;
+		case 10:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT82);
+			break;
+		case 11:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT85);
+			break;
+		case 12:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT88);
+			break;
+		case 13:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT91);
+			break;
+		case 14:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT94);
+			break;
+		case 15:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT97);
+			break;
+		case 16:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT100);
+			break;
+		case 17:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT103);
+			break;
+		case 18:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT106);
+			break;
+		case 19:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT109);
+			break;
+		default:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT112); // think of better default ###
+			break;
+		}
+
+		pEdit->SetWindowText(str);
+	}
+
+	return (retVal);
+}
+
+// -----------------------------------------------------------------------------
+int CMFCHemtALTDlg::UpdateIdSampleValStruct(int module)
+{
+	// update struct of ID Sample text from display 
+	int retVal = 0;
+	CEdit* pEdit;
+
+	for (int i = 0; i<Ndut; i++)
+	{
+
+		// get ptr to edit control
+		switch (i)
+		{
+		case 0:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT112);
+			break;
+		case 1:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT115);
+			break;
+		case 2:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT118);
+			break;
+		case 3:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT121);
+			break;
+		case 4:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT124);
+			break;
+		case 5:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT127);
+			break;
+		case 6:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT130);
+			break;
+		case 7:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT133);
+			break;
+		case 8:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT136);
+			break;
+		case 9:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT139);
+			break;
+		case 10:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT82);
+			break;
+		case 11:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT85);
+			break;
+		case 12:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT88);
+			break;
+		case 13:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT91);
+			break;
+		case 14:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT94);
+			break;
+		case 15:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT97);
+			break;
+		case 16:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT100);
+			break;
+		case 17:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT103);
+			break;
+		case 18:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT106);
+			break;
+		case 19:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT109);
+			break;
+		default:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT112); // think of better default ###
+			break;
+		}
+
+		// get display string into struc
+		CString str;
+		pEdit->GetWindowText(str);
+		MBT->Module[module].SampleID[i] = str;
+	}
+
+	return (retVal);
+}
+
+// -----------------------------------------------------------------------------
+int CMFCHemtALTDlg::UpdateIlkLimValDisp(int module)
 { 
 	// update display of IlkLim software threshold from Module struc 
 	int retVal = 0 ;
@@ -1496,6 +1672,102 @@ int CMFCHemtALTDlg::UpdateIlkLimVal(int module)
 	pEdit->SetWindowText(str);
 
 	return (retVal) ;
+}
+
+// -----------------------------------------------------------------------------
+int CMFCHemtALTDlg::UpdateIlkLimValStruct(int module)
+{
+	// update Module struct for IlkLim from display 
+	int retVal = 0;
+	CEdit* pEdit;
+	CString str;
+
+	for (int i = 0; i<Ndut; i++)
+	{
+		
+		switch (i)
+		{
+		case 0:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT40);
+			break;
+		case 1:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT10);
+			break;
+		case 2:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT39);
+			break;
+		case 3:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT9);
+			break;
+		case 4:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT38);
+			break;
+		case 5:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT8);
+			break;
+		case 6:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT37);
+			break;
+		case 7:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT7);
+			break;
+		case 8:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT36);
+			break;
+		case 9:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT6);
+			break;
+		case 10:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT35);
+			break;
+		case 11:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT5);
+			break;
+		case 12:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT34);
+			break;
+		case 13:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT4);
+			break;
+		case 14:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT33);
+			break;
+		case 15:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT3);
+			break;
+		case 16:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT32);
+			break;
+		case 17:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT2);
+			break;
+		case 18:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT11);
+			break;
+		case 19:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT1);
+			break;
+		default:
+			pEdit = (CEdit*)GetDlgItem(IDC_EDIT1); // think of better default ###
+			break;
+		}
+
+
+		// get display string into struc
+		pEdit->GetWindowText(str);
+
+		float fval = atof(str);
+		int integer = ((float)fval * UA2TEN_NA);
+
+		MBT->Module[module].IlkLim[i] = integer;
+
+	}
+
+	str.Format("%4.2f", ((float)MBT->Module[module].HVref) / FLOAT2FXD);
+	pEdit = (CEdit*)GetDlgItem(IDC_EDIT70);
+	pEdit->SetWindowText(str);
+
+	return (retVal);
 }
 
 // -----------------------------------------------------------------------------
@@ -2014,6 +2286,9 @@ int CMFCHemtALTDlg::UpdateCfgMemoryfromDisplay(int module, int dut)
 		fval = (float) atof(s);
 		integer = (int)(fval * UA2TEN_NA);
         MBT->Module[module].Alarm = integer;
+
+		UpdateIdSampleValStruct(module);
+		UpdateIlkLimValStruct(module);
 
 	}
 	else error = (-1) ;
@@ -3891,6 +4166,7 @@ int CMFCHemtALTDlg::GrabSampleID(int val)
 	return (0);
 }
 
+// ---------------------------------------------------------------------------
 void CMFCHemtALTDlg::OnEnChangeEdit143()
 {
 	// TODO:  If this is a RICHEDIT control, the control will not
