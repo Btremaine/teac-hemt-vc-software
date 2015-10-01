@@ -42,18 +42,17 @@ CHemtTest::CHemtTest(CString serial_num)
 {
 	niDAQwrap = new CniDAQ();
 
-	int absent = niDAQwrap->ChkNiDaqAvail(serial_num);
+	int absent = (niDAQwrap->ChkNiDaqAvail(serial_num));
 
 	m_NIDAQ_absent = absent;
 
-	CDacIO = new CDacBoardIO();
-	CDacIO->niDAQwrap = niDAQwrap;  // tell CDacIO where NI is accessed
-
-	// initialize struct Rack, an instance of Module
-	InitModuleDefault();
-
 	if (!absent)
 	{
+		CDacIO = new CDacBoardIO();
+		CDacIO->niDAQwrap = niDAQwrap;  // tell CDacIO where NI is accessed
+
+		// initialize struct Rack, an instance of Module
+		InitModuleDefault();
 
 		CDacIO->SetAltOutChnls(TRUE);   // initialize output channels to push-pull
 
@@ -61,7 +60,6 @@ CHemtTest::CHemtTest(CString serial_num)
 		EnableWBport(0);
 		EnableWBport(1);
 		EnableWBport(2);
-
 
 #define debug_hdw 0
 while (debug_hdw)
@@ -335,13 +333,16 @@ while (debug_hdw)
 // ---------------------------------------------------------------------
 void CHemtTest::InitModuleDefault() 
 {
+	char * comment = new char[100];
+
+	strcpy(comment, _T("The device run comment is to define the general configuration"));
 
    // initialize module[] at creation to defaults
 	for (int j=0; j<Nmod; j++) // {0,1,2}
 	{
 		Module[j].state = IDLE ;
 		Module[j].ET = 0 ;
-		Module[j].runComment = _T("Dummy comment xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx") ;
+		Module[j].runComment = comment;
 		Module[j].op_mode = 2 ;        // test mode off
 		Module[j].HV = (int) HV_DEFAULT;     // fixed point voltage x 10
 		Module[j].gate = (int) GTE_DEFAULT;  // fixed point voltage x 10
@@ -367,6 +368,7 @@ void CHemtTest::InitModuleDefault()
 			Module[j].resTime[j] = 0;
 		}
 	}
+	delete[] comment;
 }
 // ---------------------------------------------------------------------
 int CHemtTest::SetHvEnable(int module, bool value)

@@ -41,11 +41,12 @@ int CniDAQ::ChkNiDaqAvail(CString serial_num)
 	int32 error = 0;
 	unsigned long int data;
 	// char device[] =  "Dev1" ;
-	CString str ;
+	CString str = "00000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
 	// get list of devices then check each one for assigned serial number
 	int bufferSize = 30;
-	char list[] = "00000000000000000000000000000\0" ;
+	char * list = new char[30];
+	strcpy(list, _T("000000000000000000000000000\0")) ;
 	if( DAQmxGetSysDevNames( list, bufferSize) )
 	{
 		str = "Error Initializing NI-USB-6501,\r\ncan't get serial number: " ;
@@ -53,7 +54,7 @@ int CniDAQ::ChkNiDaqAvail(CString serial_num)
 		AfxMessageBox(str) ;
 		m_niDAQmx_online = -1 ;
 		niDAQserialNum = 0 ;
-
+		delete [] list;
 		return (m_niDAQmx_online) ;
 	}
 
@@ -78,9 +79,9 @@ int CniDAQ::ChkNiDaqAvail(CString serial_num)
 
     if( error )
 	{
-		str = "Error Initializing NI-USB-6501,\r\ncan't get serial number: " ;
-		str += serial_num ;
-		AfxMessageBox(str) ;
+		str.Format(_T("Error Initializing NI-USB-6501,\r\ncan't get serial number: ")+serial_num) ;
+	    //AfxMessageBox(str) ;
+
 		m_niDAQmx_online = -1 ;
 		niDAQserialNum = 0 ;
 	}
@@ -94,7 +95,7 @@ int CniDAQ::ChkNiDaqAvail(CString serial_num)
 		{
 			str = "Error Initializing NI-USB-6501,\r\nfailed self-test: " ;
 			str += m_device ;
-			AfxMessageBox(str) ;
+			//AfxMessageBox(str) ;
 			m_niDAQmx_online = -1 ;
 			niDAQserialNum = 0 ;
 		}
@@ -105,6 +106,8 @@ int CniDAQ::ChkNiDaqAvail(CString serial_num)
 			m_niDAQmx_online = 0 ;
 		}
 	}
+
+	delete[] list;
 
     return (m_niDAQmx_online) ;
 }

@@ -8,6 +8,7 @@
 //
 
 #include "stdafx.h"
+#include "vld.h"
 #include "MFCHemtALTApp.h"
 #include "MFCHemtALTDlg.h"
 

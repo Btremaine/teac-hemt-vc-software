@@ -10,6 +10,7 @@
 
 #include "resource.h"		// main symbols
 
+#define VLD_AGGREGATE_DUPLICATES
 
 // CMFCApplication1App:
 // See MFCLaserALTApp.cpp for the implementation of this class

@@ -206,73 +206,86 @@ BOOL CMFCHemtALTDlg::OnInitDialog()
 	//   --- default file paths for *.cfg & *.log files.
     GetIniFileData(m_rack_number) ;
 	MBT = new CHemtTest(m_ni_serial_num) ;
-
 	m_NIDAQ_absent = MBT->m_NIDAQ_absent ;
 
-	// Display setup information
-	CString setup ;
-	char buff[32];
-	sprintf_s(buff, "RACK: #%1d, Device ", m_rack_number) ;
-	setup.SetString(buff) ;
-#ifdef DEBUG_NO_NIDAQ
-	setup.Append(m_ni_serial_num);
-#else
-	setup.Append(GetDeviceName());
-#endif
-	GetDlgItem((IDC_SETUP_TEXT))->SetWindowText((LPCTSTR) setup) ;
-	// ---------------------------------------------------------------
-	LOGFONT lf;
-	memset(&lf, 0, sizeof(LOGFONT));   // Clear out structure.
-	lf.lfHeight = 20;                  // Request a 20-pixel-high font
-	strcpy(lf.lfFaceName, "Arial");    //    with face name "Arial".
-	m_font.DeleteObject();
-	m_font.CreateFontIndirect(&lf);    // Create the font.
-	// Use the font to paint a control. This code assumes
-	GetDlgItem(IDC_HV_STATUS)->SetFont(&m_font);
-	// ----
-	memset(&lf, 0, sizeof(LOGFONT));   // Clear out structure.
-	lf.lfHeight = 20;                  // Request a 20-pixel-high font
-	strcpy(lf.lfFaceName, "Arial");    //    with face name "Arial".
-	m_font.DeleteObject();
-	m_font.CreateFontIndirect(&lf);    // Create the font.
-	// Use the font to paint a control. This code assumes
-	GetDlgItem(IDC_EDIT70)->SetFont(&m_font);
-	// ---- IDC_STATIC_LOGO62
-	//CBitmap bmp;
-    //bmp.LoadBitmap(IDB_LOGO);
-	//m_logo = (CStatic *)GetDlgItem(IDC_STATIC_LOGO);
-    //m_logo->SetBitmap(bmp);   
-
-
-	// initialize default configuration settings of window
-	InitCfgSettings() ;	
-
-	// =================================================================================
-	// cfg file has specific settings per module
-	//   --- read/write
-	// log file has run-in data history
-	//   --- read/write
-	//
-	for (int i=0;i<Nmod; i++)
-	{
-		// initalizes Module struc 
-		LoadConfigFile(i) ;
+	if (m_NIDAQ_absent){
+		CString str = "Exit program - No NI board found\r\nCheck serial #" + m_ni_serial_num;
+		str += " or USB cable.";
+		AfxMessageBox(str);
+		PostMessage(WM_CLOSE, 0, 0);  // EndDialog(0);
 	}
-
-	// update configuration display for current selected module
-	UpdateCurrentCfgDisplayfromMemory(MBT->m_active_module, m_cfg_Ndut) ;
-	UpdateIlkLimValDisp(MBT->m_active_module);
-	InitResTime(MBT->m_active_module);
-	InitSampleID(MBT->m_active_module);
-	InitEnables(MBT->m_active_module);
-
-	// ==================================================================================
-	// initialize sensor inital & current DISPLAY values to zero for GUI active module
-	InitSenVal(MBT->m_active_module) ;
 	
-	// initialize Elapsed time
-	InitElapsedTime() ;
-	UpdateAndDispTotalTime(MBT->m_active_module);
+	if (!m_NIDAQ_absent)
+	{
+		InitCfgSettings();
+
+		// Display setup information
+		CString setup;
+		char * buff = new char[32];
+		sprintf(&buff[0], "RACK: #%1d, Device ", m_rack_number);
+		setup.SetString(buff);
+		delete[] buff;
+
+#ifdef DEBUG_NO_NIDAQ
+		setup.Append(m_ni_serial_num);
+#else
+		setup.Append(GetDeviceName());
+#endif
+		GetDlgItem((IDC_SETUP_TEXT))->SetWindowText((LPCTSTR)setup);
+		// ---------------------------------------------------------------
+		LOGFONT lf;
+		memset(&lf, 0, sizeof(LOGFONT));   // Clear out structure.
+		lf.lfHeight = 20;                  // Request a 20-pixel-high font
+		strcpy(lf.lfFaceName, "Arial");    //    with face name "Arial".
+		m_font.DeleteObject();
+		m_font.CreateFontIndirect(&lf);    // Create the font.
+		// Use the font to paint a control. This code assumes
+		GetDlgItem(IDC_HV_STATUS)->SetFont(&m_font);
+		// ----
+		memset(&lf, 0, sizeof(LOGFONT));   // Clear out structure.
+		lf.lfHeight = 20;                  // Request a 20-pixel-high font
+		strcpy(lf.lfFaceName, "Arial");    //    with face name "Arial".
+		m_font.DeleteObject();
+		m_font.CreateFontIndirect(&lf);    // Create the font.
+		// Use the font to paint a control. This code assumes
+		GetDlgItem(IDC_EDIT70)->SetFont(&m_font);
+		// ---- IDC_STATIC_LOGO62
+		//CBitmap bmp;
+		//bmp.LoadBitmap(IDB_LOGO);
+		//m_logo = (CStatic *)GetDlgItem(IDC_STATIC_LOGO);
+		//m_logo->SetBitmap(bmp);   
+
+
+		// initialize default configuration settings of window
+		InitCfgSettings();
+
+		// =================================================================================
+		// cfg file has specific settings per module
+		//   --- read/write
+		// log file has run-in data history
+		//   --- read/write
+		//
+		for (int i = 0; i < Nmod; i++)
+		{
+			// initalizes Module struc 
+			LoadConfigFile(i);
+		}
+
+		// update configuration display for current selected module
+		UpdateCurrentCfgDisplayfromMemory(MBT->m_active_module, m_cfg_Ndut);
+		UpdateIlkLimValDisp(MBT->m_active_module);
+		InitResTime(MBT->m_active_module);
+		InitSampleID(MBT->m_active_module);
+		InitEnables(MBT->m_active_module);
+
+		// ==================================================================================
+		// initialize sensor inital & current DISPLAY values to zero for GUI active module
+		InitSenVal(MBT->m_active_module);
+
+		// initialize Elapsed time
+		InitElapsedTime();
+		UpdateAndDispTotalTime(MBT->m_active_module);
+	}
 
 	return TRUE;  // return TRUE  unless you set the focus to a control
 }
@@ -485,7 +498,7 @@ HCURSOR CMFCHemtALTDlg::OnQueryDragIcon()
 void CMFCHemtALTDlg::InitTestRadioBut(void)
 {
 	// initialize radio button for module 0 active
-	CButton* pButt = (CButton*)GetDlgItem(IDC_RADIO1);
+	CButton *pButt = (CButton*)GetDlgItem(IDC_RADIO1);
 	pButt->SetFocus();
 	pButt->SetCheck(true);
 	MBT->m_active_module = 0;
@@ -2310,7 +2323,9 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 #if 1
    // Get ini file data   [ ***  FOR ALL RACKS  *** ]
    //------------------------------------------------------------------
-   char* pszFileName = "c:\\HemtALT\\HemtALT.ini"  ;
+   char* pszFileName = new char[50];
+   strcpy(pszFileName, "c:\\HemtALT\\HemtALT.ini");
+ 
    CFile iniFile ;
    CFileException fileException ;
  
@@ -2380,12 +2395,11 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 	   // using ini file to get defaults for this rack
 
        UINT  nActual = 0 ;
-	   TCHAR *tcData ;
 
 	   try
 	   {
           int len = (int) iniFile.GetLength() ;
-		  tcData = new TCHAR[len+1] ;
+		  TCHAR *tcData = new TCHAR[len+1] ;
 		  tcData[len]= '\0';
 
           nActual = iniFile.Read(tcData, len) ; 
@@ -2393,9 +2407,11 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 		  if(nActual!=0)
 		  {    // get NI serial #   /////////////////////////////////////
                CString szBuff(tcData);
-			   const char * target = _T("[ni_serial]") ;
-			   const char * target_log ;
-			   const char * target_cfg ;
+			   char * target = new char[40] ;
+			   char * target_log = new char[40] ;
+			   char * target_cfg = new char[40] ;
+
+			   strcpy(target,"[ni_serial]");
 
 			   szBuff = tcData;
 			   int pos = szBuff.Find(target);
@@ -2405,23 +2421,23 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 			   {
 			   case ONE:
 				   pos = szBuff.Find(_T("s1"));
-				   target_log = _T("[logfileR1]") ;
-				   target_cfg = _T("[cfgfileR1]") ;
+				   strcpy(target_log, _T("[logfileR1]")) ;
+				   strcpy(target_cfg, _T("[cfgfileR1]")) ;
 				   break;
 			   case TWO:
 				   pos = szBuff.Find(_T("s2"));
-				   target_log = _T("[logfileR2]") ;
-				   target_cfg = _T("[cfgfileR2]") ;
+				   strcpy(target_log, _T("[logfileR2]")) ;
+				   strcpy(target_cfg, _T("[cfgfileR2]")) ;
 				   break;
 			   case THREE:
 				   pos = szBuff.Find(_T("s3"));
-				   target_log = _T("[logfileR3]") ;
-				   target_cfg = _T("[cfgfileR3]") ;
+				   strcpy(target_log, _T("[logfileR3]")) ;
+				   strcpy(target_cfg, _T("[cfgfileR3]")) ;
 				   break;
 			   default:
                    pos = szBuff.Find(_T("s1"));
-				   target_log = _T("[logfileR1]") ;
-				   target_cfg = _T("[cfgfileR1]") ;
+				   strcpy(target_log, _T("[logfileR1]")) ;
+				   strcpy(target_cfg, _T("[cfgfileR1]")) ;
 			   }
 			   // getting serial #
                szBuff.Delete(0,pos) ;
@@ -2470,7 +2486,7 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 			   m_time_increment = atoi(buf) ; 
 
 			   // get logfile for selected rack # /////////////////////
-			   target = target_log ;
+			   strcpy(target,target_log) ;
 
 			   szBuff = tcData;
 			   pos = szBuff.Find(target);
@@ -2501,7 +2517,7 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
                m_logfile_path[2].TrimLeft(" ") ;
 
                // get cfgfile ///////////////////////////////////////
-			   target = target_cfg ;
+			   strcpy(target, target_cfg) ;
 
 			   szBuff = tcData;
 			   pos = szBuff.Find(target);
@@ -2816,7 +2832,11 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 
 			   // -----------------------------------------------
 
-
+				// House cleaning 
+				delete [] target;
+				delete [] target_log;
+				delete [] target_cfg;
+			    delete [] tcData;
 		  }
 		  else
 		  {
@@ -2829,9 +2849,11 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 	   }
 
 	   // done
-	// delete[] tcData ;
+
 	   iniFile.Close() ;
    }
+
+   delete [] pszFileName;
 #endif
    return (0);
 }
@@ -2860,13 +2882,12 @@ int CMFCHemtALTDlg::LoadConfigFile(int module)    // *.cvs //
 	 else
 	 {
 		 UINT  nActual = 0 ;
-	     TCHAR *tcData ;
 		 retVal = 0 ;
 
 		 try
 		 {
             int len = (int) m_cfgfile_handle[module].GetLength() ;
-		    tcData = new TCHAR[len+1] ;
+		    TCHAR *tcData = new TCHAR[len+1] ;
 		    tcData[len]= '\0';
 
             nActual = m_cfgfile_handle[module].Read(tcData, len) ; 
@@ -2881,6 +2902,8 @@ int CMFCHemtALTDlg::LoadConfigFile(int module)    // *.cvs //
 			{
                 throw len ;
 			}
+
+			delete[] tcData;
         }  
         catch(...)
         {
