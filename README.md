@@ -7,3 +7,5 @@
 *
 Repo owner or admin: Brian Tremaine
 brian@TremaineConsultingGroup.com
+
+10/8/2015: V1.80 is last working version deployed at TEAC
