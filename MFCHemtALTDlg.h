@@ -54,9 +54,12 @@ private:
 	int CheckIdle(void);
 	CString GetDeviceName(void) ;
 	int DisplayHighVolts(int module);
+	void ShutDown(void);
+	int CheckModuleInstalled(int module);
 
 	// file handling
 	int GetIniFileData(rackID rack_num) ;
+	int GetTempCalData(rackID rack_num) ;
     int LoadConfigFile(int module) ;
 	int SaveConfigFile(int module) ;
 	void OnBnClickedOpenFile(int module) ;
@@ -85,13 +88,13 @@ private:
 	int GrabSampleID(int val);
 	int ChangeLogFileName(int module, LPTSTR value);
 
-	int CnvrtAdc2DegC(enum TC_ID TC, int val, float *degC);
 	int aquireTempValues(int module);
 
 	int m_cfg_Ndut ;
 	int m_numModules ;
 	int m_operation ;
 	int m_NIDAQ_absent ;
+	int m_cancel = 0;
 
 	UINT m_time_increment ;
 	CFont m_font;
@@ -113,17 +116,28 @@ private:
 	UINT_PTR m_timer_hndl ;                  // Timer handle, timer ID is 1, used for all modules
 
 	// config calibration data for HV, TC, alarm & gate
-	float m_hv_b0;
-	float m_hv_b1;
+	float m_hv_set_b0[Nmod];
+	float m_hv_set_b1[Nmod];
 
-	float m_temp_b0[8];
-	float m_temp_b1[8];
+	float m_hv_rd_b0[Nmod];
+	float m_hv_rd_b1[Nmod];
 
-	float m_alarm_b0;
-	float m_alarm_b1;
+	float m_temp_b0[Nmod][TCE];
+	float m_temp_b1[Nmod][TCE];
 
-	float m_gate_b0;
-	float m_gate_b1;
+	float m_tempref_b0[Nmod][HTRE];
+	float m_tempref_b1[Nmod][HTRE];
+
+	float m_alarm_b0[Nmod];
+	float m_alarm_b1[Nmod];
+
+	float m_gate_b0[Nmod];
+	float m_gate_b1[Nmod];
+
+	int m_tc_cntr;
+	int m_tc_dbnd;
+	int m_tc_toff_min;
+	int m_tc_ton_max;
 
 // Dialog Data
 	enum { IDD = IDD_MFCAPPLICATION1_DIALOG };

@@ -44,6 +44,10 @@ CHemtTest::CHemtTest(CString serial_num)
 
 	int absent = (niDAQwrap->ChkNiDaqAvail(serial_num));
 
+#ifdef DEBUG_NO_NIDAQ
+	absent = 0;			// force present for debug
+#endif
+
 	m_NIDAQ_absent = absent;
 
 	if (!absent)
@@ -68,7 +72,7 @@ while (debug_hdw)
 			int val;
 			int nom = 0;
 
-			int module = 0;			// {0,1 or 2)
+			int module = 1;			// {0,1 or 2)
 
 			int dut = 0;
 
@@ -424,6 +428,8 @@ int CHemtTest::SetHvDac(int module, int fp_value, bool type)
 	// module # is set {0,1,2}
 	// value is DAC setting
 
+	// default is type == true,
+
 	int error ;
 
 	if (error = CheckNiDAQ())
@@ -441,7 +447,7 @@ int CHemtTest::SetHvDac(int module, int fp_value, bool type)
 			x = HV_LIMIT;
 		}
 		// convert fixed point HV to DAC
-		x =  x * HV_COEFF1 + HV_COEFF0;
+		x =  x * m_hv_set_b1[module] + m_hv_set_b0[module];
 		dac = (int)x;
 	}
 	else
@@ -511,7 +517,7 @@ int CHemtTest::SetIalarm(int module, int fp_value, bool type)
 	if (type) // fixed point type
 	{
 		// convert fixed point ILEAK to DAC
-		float x = ((float)fp_value / FLOAT2FXD) * ILK_COEFF1 + ILK_COEFF0;
+		float x = ((float)fp_value / FLOAT2FXD) * m_alarm_b1[module] + m_alarm_b0[module];
 		dac = (int)x;
 	}
 	else
@@ -552,7 +558,7 @@ int CHemtTest::SetGate(int module, int fp_value, bool type)
 	if (type) // fixed point
 	{
 		// convert fixed point Gate to DAC 
-		float x = ((float)fp_value / FLOAT2FXD) * GT_COEFF1 + GT_COEFF0;
+		float x = ((float)fp_value / FLOAT2FXD) * m_gate_b1[module] + m_gate_b0[module];
 		dac = (int)x;
 	}
 	else
@@ -652,8 +658,9 @@ int CHemtTest::SetTref(int module, HTR_ID htr, int value)
 	}
 	else
 	{
-		// value written is degC * 128
-		value = (value * 128 / 10);
+		// value written is 10ths of degC * 128
+		value = CalTref2TC(value, htr, module);
+		value = (value * 128 / FLOAT2FXD);
 		WriteI2C_DblByte(module, chan, value);
 	}
 
@@ -696,10 +703,11 @@ int CHemtTest::ReadTref(int module, enum HTR_ID chan, int * data)
 	{
 		return (error) ;
 	}
-	ReadTrefChan(module, chan, data);
+	ReadTrefChan(module, chan, data);   // data is degC * 128
 
-	// convert
-	*data = (*data / 128) * FLOAT2FXD;
+	// convert TREF used in TC back to calibrated value used in GUI display
+	// part of thermocouple calibration
+	*data = CnvrtTCref2TREF(*data, chan, module);
 
 #else
 	// data is fixed point degC * 10
@@ -723,15 +731,15 @@ int CHemtTest::ReadTemp(int module, enum TC_ID chan, int * data)
 	if (error = CheckNiDAQ()) { return (error); }
 
 	ReadTempChan(module, chan, data);
-
-	// convert
-	*data = (*data / 128) * FLOAT2FXD;
-
-
 #else
-	// data is fixed point degC * 10
-	*data = NO_NIDAQ_TREF;
+	*data = (198.7) * 128;  // equivalent TC value
 #endif
+
+	// temperature calibration, convert TC reading to calibrated value
+	float arg;
+	arg = ((*data) / 128) ;   // raw deg C float
+
+	(*data) = CalTC2Temp( (int) (arg*FLOAT2FXD), chan, module) ;
 
 	return error;
 }
@@ -766,7 +774,10 @@ int CHemtTest::ReadAnlg(int module, VoltID device, int * val)
 	// (two transactions, start ADC & read data)
 	error = CDacIO->ReadAdcChan(module, NULL, val, false);
 
+#else
+	*val = 0xff;
 #endif
+
 
 	return error;
 
@@ -840,6 +851,23 @@ int CHemtTest::EnableTcServos(int module)
 }
 
 // ---------------------------------------------------------------------------
+int CHemtTest::DisableTcServos(int module)
+{
+	// Enable TC servos
+
+	int error = 0;
+
+	Module[module].Heater[0] = 0;
+	Module[module].Heater[1] = 0;
+	Module[module].Heater[2] = 0;
+	Module[module].Heater[3] = 0;
+
+	error = WriteI2C_Reg(module, CMD_SSR_ENB, 0);
+
+	return (error);
+}
+
+// ---------------------------------------------------------------------------
 int CHemtTest::GetStatus(int module, int id, int * val)
 {
 	// execute status command
@@ -899,10 +927,12 @@ int CHemtTest::ReadModuleSensorChan(int module, int chan, int * val)
 int CHemtTest::CheckNiDAQ(void)
 {
 	// check NiDAQ present
+#ifndef DEBUG_NO_NIDAQ
 	if (CDacIO->niDAQwrap->m_niDAQmx_online)
 	{
 		return (-1) ;
 	}
+#endif
 
 	return (0) ;
 }
@@ -944,6 +974,11 @@ int CHemtTest::LoadConfigToFpga(int module)
 		}
 
 		SetTref(module, j, Module[module].TREF[i]);
+		SetServoParam(module, ID_DBND, m_tc_dbnd);
+		SetServoParam(module, ID_TON, m_tc_ton_max);
+		SetServoParam(module, ID_TOFF, m_tc_toff_min);
+		SetServoParam(module, ID_TMR, m_tc_cntr);	
+
 	}
 
     SetIalarm(module, Module[module].Alarm);
@@ -993,11 +1028,6 @@ int CHemtTest::WrtTXR(int module, int addr)
 
 	int error;
 
-	if (error = CheckNiDAQ())
-	{
-		return (error);
-	}
-
 	addr = addr & 0xff;
 	error = CDacIO->WriteDataByte(module, CMD_TXR_REG, addr);
 
@@ -1012,11 +1042,6 @@ int CHemtTest::WrtCR(int module, int addr)
 	// addr:
 
 	int error;
-
-	if (error = CheckNiDAQ())
-	{
-		return (error);
-	}
 
 	addr = addr & 0xff;
 	error = CDacIO->WriteDataByte(module, CMD_CR_REG, addr);
@@ -1182,6 +1207,13 @@ int CHemtTest::WriteI2C_Reg(int module, unsigned char  reg, unsigned char data)
 {
 
 	// === WRITE to SLAVE, works 5/17/15 ===
+	int error;
+
+	if (error = CheckNiDAQ())
+	{
+		return (error);
+	}
+
 	// ------ load slave address
 	WrtTXR(module, (I2CADDR | 0x00));
 	Sleep(1);
@@ -1212,6 +1244,11 @@ int CHemtTest::ReadI2C_Byte(int module, unsigned char cmnd_reg, unsigned char* d
 
 	int result;
 
+	if (error = CheckNiDAQ())
+	{
+		return (error);
+	}
+
 	// ------ load slave address & write bit
 	WrtTXR(module, (I2CADDR | 0x00));
 	// enable start & write slave address
@@ -1230,7 +1267,7 @@ int CHemtTest::ReadI2C_Byte(int module, unsigned char cmnd_reg, unsigned char* d
 	getTIP(module, &val);
 	getI2Cbyte(module, &result);
 	WrtCR(module, 0x40);  // send stop
-	getTIP(module, &val); // ---- for devug only
+	getTIP(module, &val); // ---- for debug only
 	*data = (result);
 
 	return(error);
@@ -1247,6 +1284,11 @@ int CHemtTest::ReadI2C_DblByte(int module, unsigned char cmnd_reg, int* data)
 
 	int lsb;
 	int msb;
+
+	if (error = CheckNiDAQ())
+	{
+		return (error);
+	}
 
 	// ------ load slave address & write bit
 	WrtTXR(module, (I2CADDR | 0x00));
@@ -1284,13 +1326,19 @@ int CHemtTest::WriteI2C_DblByte(int module, unsigned char reg, int data)
 {
 	// two byte read commands to I2C interface
 
-
 	int val;
 	int lsb;
 	int msb;
 
 	lsb = (data & 0xFF);
 	msb = (data >> 8) & 0xFF;
+
+	int error;
+
+	if (error = CheckNiDAQ())
+	{
+		return (error);
+	}
 
 	// ------ load slave address
 	WrtTXR(module, (I2CADDR | 0x00)); //1
@@ -1349,17 +1397,12 @@ int CHemtTest::getTIP(int module, int * data)
 	// read status byte from Wishbone interface
 	// module:	 # is set {0,1,2}
 
-	int error;
-
-	if (error = CheckNiDAQ())
-	{
-		return (error);
-	}
+	int error = 0;
 
 	int bit=1;
 	int count = 0;
 
-	while (bit && count<20 )
+	while (bit && (count< I2C_TIP_WAIT) )
 	{
 		error = CDacIO->ReadDataChanByte(module, CMD_SR_REG, (0), data, true);
 		bit = ((*data) >> 1) & 0x01;  // bit 1 is TIP
@@ -1545,4 +1588,45 @@ int CHemtTest::ReadI2CVersion(int module, int * data)
 
 	return (error);
 
+}
+
+// ----------------------------------------------------------------------------------
+int CHemtTest::CalTref2TC(int value, HTR_ID j, int module)
+{
+	// Convert desired TREF to calibrated value for TC
+	// value is 10th's of degC using define
+
+	float arg;
+	arg = (float) (value / FLOAT2FXD) ;
+	value = FLOAT2FXD * (arg * m_tempref_b1[module][j] + m_tempref_b0[module][j]) ;
+
+	return (value);
+}
+
+// -----------------------------------------------------------------------------------
+int CHemtTest::CalTC2Temp(int value, TC_ID j, int module)
+{
+	// Convert TC Temp reading to calibrated value for display
+	// value is 10th's of degC using define
+
+	float arg;
+	arg = (float)(value / FLOAT2FXD);
+	value = FLOAT2FXD * (arg * m_temp_b1[module][j] + m_temp_b0[module][j]);
+
+	return (value);
+}
+
+// ----------------------------------------------------------------------------------
+int CHemtTest::CnvrtTCref2TREF(int value, HTR_ID j, int module)
+{
+	// Convert TREF read from TC to calibrated value for display
+	// value is degC * 128
+	// return: 10th's of degC
+
+	float arg;
+	arg = (float)(value / 128);   // float degC
+
+	value = ((arg - m_tempref_b0[module][j]) / m_tempref_b1[module][j]) * FLOAT2FXD;
+
+	return (value);
 }

@@ -15,11 +15,6 @@
 #include "common.h"
 #include "math.h"
 
-#define HARDWARE_INSTALLED 1
-#undef DEBUG_NO_NIDAQ
-
-
-
 class CHemtTest : public CWnd
 {
 
@@ -36,7 +31,7 @@ public:
 
 	int SetAnlgMux(int module, int mux, int chan);
 	int SetThrGain(int module, bool value);
-	int GetStatus(int module, int id, int * val) ;
+	int GetStatus(int module, int id, int * val) ;			// not completed
 	int SetHvDac(int module, int val, bool fp= true) ;
 	int SetIalarm(int module, int val, bool fp=true) ;
 	int SetGate(int module, int fp_value, bool fp= true);
@@ -45,11 +40,12 @@ public:
 	int SetServoParam(int module, enum ServoID, unsigned char val);
 	int ReadHTword(int module, HT_WORD ht, int * val);
 	int ReadAnlg(int module, VoltID ch, int * val);
-	int ReadStatus(int module, int * stat );
+	int ReadStatus(int module, int * stat );				// not implemented
 	int ReadILEAK(int module, int chan, int * val) ;
 	int ReadTref(int module, enum HTR_ID htr, int * val) ;
 	int ReadTemp(int module, enum TC_ID TC, int * val) ;
 	int EnableTcServos(int module);
+	int DisableTcServos(int module);
 
 	int LoadSelectedDeviceConfig(int module, int Ndut);
 	int LoadConfigToFpga (int module ) ;
@@ -58,6 +54,9 @@ public:
 	int ReadModuleSensorChan(int module, int chan, int * val);
 	int CheckNiDAQ(void) ;
 	int SetModSel(int);
+	int CalTref2TC(int value, HTR_ID j, int module);
+	int CalTC2Temp(int value, TC_ID j, int module);
+	int CnvrtTCref2TREF(int value, HTR_ID j, int module);
 
 	// Wishbone I2C funcs
 	int WrtTXR(int module, int value);
@@ -201,8 +200,22 @@ public:
 #define HEATER_DEFAULT (false)
 #define TMAX_LIMIT   (205*FLOAT2FXD)
 #define TREF_DEFAULT (50*FLOAT2FXD)
+
 #define TREF_COEFF0  (125.0)
 #define TREF_COEFF1  (15.0)
+#define TEMP_CAL0    (0.00)
+#define TEMP_CAL1    (1.00)
+#define TREF_CAL0    (0.00)
+#define TREF_CAL1    (1.00)
+// TC servo
+#define TC_CNTR		(50)			// PIC ISR counts/cycle
+#define TC_DBND	    (5)				// Temp dead_band: degC << 5  ?? verify
+#define TC_TOFF		(10)			// PIC ISR counts min OFF
+#define TC_TON		(40)			// PIC ISR counts max ON
+
+// I2C
+#define I2C_TIP_WAIT (6)
+
 // time increment in msec
 #define TIME_INCR   (60000)
 // ADC scaling
@@ -250,6 +263,30 @@ public:
 	int m_active_module ;         // current active module for GUI interface
 	int m_NIDAQ_absent ;          // status of NiDaq presence
 	int m_timer_status ;          // true==1 if master timing running, otherwise false==0
+
+	float m_hv_set_b1[Nmod] ;		  // HV_COEFF1
+	float m_hv_set_b0[Nmod];		  // HV_COEFF0
+
+	float m_hv_rd_b0[Nmod];		  // A0_ADC2HV  % convert HV ADC to float HV
+	float m_hv_rd_b1[Nmod];       // A1_ADC2HV
+
+	float m_gate_b1[Nmod];        // GT_COEFF1
+	float m_gate_b0[Nmod];		  // GT_COEFF0
+
+	float m_alarm_b0[Nmod];       // ILK_COEFF0
+	float m_alarm_b1[Nmod];       // ILK_COEFF1
+
+	float m_temp_b0[Nmod][TCE] ;    // TEMP_CAL0   % convert TC reading to calibrated temp
+	float m_temp_b1[Nmod][TCE];     // TEMP_CAL1
+
+	float m_tempref_b0[Nmod][HTRE] ; // TREF_CAL0   % convert GUI TREF to calibrated TC TREF
+	float m_tempref_b1[Nmod][HTRE] ; // TREF_CAL1
+
+	int m_tc_cntr ;
+	int m_tc_dbnd ;
+	int m_tc_toff_min ;
+	int m_tc_ton_max ;
+
 
 	ModuleT Module[Nmod] ;
 

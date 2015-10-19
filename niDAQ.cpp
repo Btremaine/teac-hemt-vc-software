@@ -977,9 +977,12 @@ int CniDAQ::NiDaqReadDacBoardAdcChan(int module, int addr, int * data)
 	// Command to start ADC convert & reading of chan
 	// need to select module prior to ADC convert
 
+	int error = 0;
 	SetModSel(module);
-	int error = NiDaqReadDacBoardByte(module, (CMD_ADC_CNVRT), data, false);
+#ifndef DEBUG_NO_NIDAQ
+	error = NiDaqReadDacBoardByte(module, (CMD_ADC_CNVRT), data, false);
 	SetModSel(NULL_MODULE);
+#endif
 
 	return error;
 }
@@ -1198,9 +1201,11 @@ int CniDAQ::SetModSel( int module)
 	CString port ;
 
 	int error = GetModSelValue(module, value) ;
+#ifndef DEBUG_NO_NIDAQ
 	port = dev ;
 	port.Append((LPCTSTR) MOD_SEL_PORT) ;    
 	error = NiDaqSetDigitalOutput(port, value) ;
+#endif
 
 	return error ;
 }

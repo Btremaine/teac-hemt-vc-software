@@ -205,14 +205,17 @@ BOOL CMFCHemtALTDlg::OnInitDialog()
 	//   --- read-only, nominally never changes once tester is setup & running
 	//   --- default file paths for *.cfg & *.log files.
     GetIniFileData(m_rack_number) ;
+	GetTempCalData(m_rack_number);
 	MBT = new CHemtTest(m_ni_serial_num) ;
-	m_NIDAQ_absent = MBT->m_NIDAQ_absent ;
+
+	m_NIDAQ_absent = MBT->m_NIDAQ_absent;
 
 	if (m_NIDAQ_absent){
 		CString str = "Exit program - No NI board found\r\nCheck serial #" + m_ni_serial_num;
 		str += " or USB cable.";
 		AfxMessageBox(str);
-		PostMessage(WM_CLOSE, 0, 0);  // EndDialog(0);
+		m_cancel = 1 ;
+		OnBnClickedCancel();
 	}
 	
 	if (!m_NIDAQ_absent)
@@ -429,6 +432,11 @@ BOOL CMFCHemtALTDlg::OnToolTipNotify(UINT id, NMHDR* pNMHDR, LRESULT* pResult)
 			pTTT->lpszText = _T("Exit the program !!?");
             break;
 
+		case IDC_CHECK27:
+			// Set the tooltip text.
+			pTTT->lpszText = _T("Ilk hi/low gain, hi=set.");
+			break;
+
         default:
             // Set the tooltip text.
             pTTT->lpszText = _T("Tooltips everywhere!!!");
@@ -514,6 +522,9 @@ void CMFCHemtALTDlg::OnBnClickedRadio1()
 {
 	// Select module #0
 	// TODO: Add your control notification handler code here
+    // Add check for module presence 
+
+
 	MBT->m_active_module = 0 ;
 	m_operation = MBT->Module[MBT->m_active_module].op_mode;
 	UpdateModuleDisplay(MBT->m_active_module);
@@ -594,7 +605,7 @@ void CMFCHemtALTDlg::OnBnClickedRadio6()
 			
 			// Read temperature settings & display
 			AcquireLogData(module);
-			aquireTempValues(module);
+			// aquireTempValues(module);
 			UpdateTempVal(module);				// displays
 			SetTestMode(m_operation);
 
@@ -640,7 +651,44 @@ void CMFCHemtALTDlg::InitCfgSettings()
 	MBT->m_timer_status = 0;		// no master timer active
 	m_operation = TEST1_MODE;       // test mode (0 = auto)
 
-	/*    TO DO --- this whole section 	*/
+	for (int i = 0; i < Nmod; i++)
+	{
+		MBT->m_hv_set_b0[i] = m_hv_set_b0[i];	// *.ini values to set HV dac from float voltage
+		MBT->m_hv_set_b1[i] = m_hv_set_b1[i];
+
+		MBT->m_hv_rd_b0[i] = m_hv_rd_b0[i];	// *.ini values to set HV display from ADC value
+		MBT->m_hv_rd_b1[i] = m_hv_rd_b1[i];
+
+		MBT->m_gate_b0[i] = m_gate_b0[i];     // *.ini values to set gate dac from float voltage
+		MBT->m_gate_b1[i] = m_gate_b1[i];
+
+		MBT->m_alarm_b0[i] = m_alarm_b0[i];   // *.ini values to set ILK alarm DAC
+		MBT->m_alarm_b1[i] = m_alarm_b1[i];
+	}
+
+	for (int j = TC1; j < TCE; j++)
+	{
+		for (int i = 0; i < Nmod; i++)
+		{
+			MBT->m_temp_b0[i][j] = m_temp_b0[i][j];		// *.ini values for temp cal
+			MBT->m_temp_b1[i][j] = m_temp_b1[i][j];
+		}
+	}
+
+	for (int j = HTR1; j < HTRE; j++)
+	{
+		for (int i = 0; i < Nmod; i++)
+		{
+			MBT->m_tempref_b0[i][j] = m_tempref_b0[i][j]; // *.ini values for temp TREF cal
+			MBT->m_tempref_b1[i][j] = m_tempref_b1[i][j];
+		}
+	}
+
+	MBT->m_tc_cntr = m_tc_cntr;
+	MBT->m_tc_dbnd = m_tc_dbnd;
+	MBT->m_tc_toff_min = m_tc_toff_min;
+	MBT->m_tc_ton_max= m_tc_ton_max;
+
 	InitTestRadioBut();
 
 }
@@ -749,7 +797,7 @@ void CMFCHemtALTDlg::OnBnClickedButton1()  // Run/Pause button
 			// re-start timer if not running
 			if (MBT->m_timer_status == 0)
 			{
-				m_timer_hndl = SetTimer(1, m_time_increment, NULL);
+				m_timer_hndl = SetTimer(MSTR_TIMER_ID, m_time_increment, NULL);
 				MBT->m_timer_status = 1;
 			}
 
@@ -945,10 +993,16 @@ void CMFCHemtALTDlg::OnBnClickedCancel()
 {
 	// TODO: Add your control notification handler code here
 
-	if (AfxMessageBox("Exit Program ?",MB_YESNO) == IDNO)
+	if (AfxMessageBox("Exit Program ?", MB_YESNO) == IDNO)
 	{
 		return;
 	}
+
+	// TODO: add code to shut off HV & turn off heaters before exiting.
+	if (!m_cancel)
+	{
+		ShutDown();
+	}	
 
 	CDialogEx::OnCancel();
 }
@@ -1254,7 +1308,7 @@ int CMFCHemtALTDlg::InitResTime(int module)
 
 	for (int i = 0; i<Ndut; i++)
 	{
-		int integer = (MBT->Module[module].resTime[i]);   // time in msec
+		ULONGLONG integer = (MBT->Module[module].resTime[i]);   // time in msec
 		float fval = ((float) integer) / (3600000);       // hours
 
 		str.Format("%4.2f", fval);
@@ -1342,7 +1396,7 @@ int CMFCHemtALTDlg::UpdateAndDispTotalTime(int module)
 
 	for (int i = 0; i<Ndut; i++)
 	{
-		int integer = (MBT->Module[module].resTime[i]) + (MBT->Module[module].ET);    // time in msec
+		ULONGLONG integer = (MBT->Module[module].resTime[i]) + (MBT->Module[module].ET);    // time in msec
 		MBT->Module[module].totTime[i] = integer;
 
 	    // Display total time
@@ -1948,7 +2002,7 @@ int CMFCHemtALTDlg::ChangeHVCfg(int module, float value )
 	// convert (float) value in V to (int) adc value
 	        // TODO
 	// update in memory
-	MBT->Module[module].HV = (int) (value*m_hv_b1 + m_hv_b0) ;
+	MBT->Module[module].HV = (int) (value*m_hv_rd_b1[module] + m_hv_rd_b0[module]) ;
 
 	return (0) ;
 }
@@ -1957,10 +2011,9 @@ int CMFCHemtALTDlg::ChangeHVCfg(int module, float value )
 int CMFCHemtALTDlg::ChangeGateCfg(int module, float value)
 {
 	// Change Gate value in configuration memory
-	// convert (float) value in V to (int) adc value
-	// TODO
+	// convert (float) value in V to (int) fixed point
 	// update in memory
-	MBT->Module[module].gate = (int)(value*m_gate_b1 + m_gate_b0);
+	MBT->Module[module].gate = (int)(value * FLOAT2FXD);
 
 	return (0);
 }
@@ -2109,7 +2162,7 @@ void CMFCHemtALTDlg::OnIdok()
 			pEditControl = (CEdit*)GetDlgItem(IDC_EDIT73);
 			pEditControl->GetWindowText(s, 255);
 
-			ChangeTrefCfg(module, HTR3, (float) atof(s));
+			ChangeTrefCfg(module, HTR4, (float) atof(s));
 			break;
 
 		case IDC_EDIT68: // Run Comment
@@ -2320,7 +2373,6 @@ void CMFCHemtALTDlg::OnIdclose()
 //----------------------------------------------------------------------------------
 int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 {
-#if 1
    // Get ini file data   [ ***  FOR ALL RACKS  *** ]
    //------------------------------------------------------------------
    char* pszFileName = new char[50];
@@ -2338,19 +2390,13 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 
 	   m_time_increment = TIME_INCR ;
 
-	   m_hv_b0 = (float) HV_COEFF0;
-	   m_hv_b1 = (float) HV_COEFF1;
-
-	   m_alarm_b0 = (float) ILK_COEFF0;
-	   m_alarm_b1 = (float) ILK_COEFF1;
-
-	   m_gate_b0 = (float) GT_COEFF0;
-	   m_gate_b1 = (float) GT_COEFF1;
-
 	   for (int i = 0; i < 8; i++)
 	   {
-		   m_temp_b0[i] = (float) TREF_COEFF0;
-		   m_temp_b1[i] = (float) TREF_COEFF1;
+		   for (int j = 0; j < Nmod; j++)
+		   {
+			   m_temp_b0[j][i] = (float)TREF_COEFF0;
+			   m_temp_b1[j][i] = (float)TREF_COEFF1;
+		   }
 	   }
 
 	   switch (m_rack_number)
@@ -2547,289 +2593,6 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
 			   m_cfgfile_path[2] = szBuff.Left(pos-1) ;
                m_cfgfile_path[2].TrimLeft(" ") ;
 
-			   // --------------------------------------------------
-			   // get HV calibration values
-
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[hvcntrl]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_hv_b0 = (float) atof(buf);
-
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[hvcntrl]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_hv_b1 = (float) atof(buf);
-
-			   // --------------------------------------------------
-			   // get gate calibration values
-
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[gate]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_gate_b0 = (float) atof(buf);
-
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[gate]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_gate_b1 = (float) atof(buf);
-
-			   // -----------------------------------------------------
-			   // get TC calibration values
-
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal1]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[0] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal1]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[0] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal2]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[1] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal2]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[1] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal3]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[2] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal3]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[2] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal4]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[3] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal4]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[3] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal5]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[4] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal5]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[4] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal6]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[5] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal6]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[5] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal7]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[6] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal7]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[6] = (float) atof(buf);
-			   //
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal8]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b0[7] = (float) atof(buf);
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[tc_cal8]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_temp_b1[7] = (float) atof(buf);
-			   
-			   // ----------------------------------------------
-			   // get alarm calibration
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[alarm_cal]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b1"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_alarm_b1 = (float) atof(buf);
-
-			   //
-			   szBuff = tcData;
-			   pos = szBuff.Find(_T("[alarm_cal]"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("b0"));
-			   szBuff.Delete(0, pos);
-			   pos = szBuff.Find(_T("="));
-			   szBuff.Delete(0, pos + 1);
-			   pos = szBuff.Find(_T("\n"));
-			   buf = szBuff.Left(pos - 1);
-			   buf.TrimLeft(" ");
-			   m_alarm_b0 = (float) atof(buf);
-
 			   // -----------------------------------------------
 
 				// House cleaning 
@@ -2854,8 +2617,547 @@ int CMFCHemtALTDlg::GetIniFileData(rackID m_rack_number)
    }
 
    delete [] pszFileName;
-#endif
    return (0);
+}
+
+// ---------------------------------------------------------------------------------
+int CMFCHemtALTDlg::GetTempCalData(rackID m_rack_number)
+{
+	// Get Temperature Cal ini file data specified RACK
+	//------------------------------------------------------------------
+	char* pszFileName = new char[50];
+
+	switch (m_rack_number)
+	{
+	case ONE:
+		strcpy(pszFileName, "c:\\HemtALT\\R1\\HemtCal.ini");
+		break;
+	case TWO:
+		strcpy(pszFileName, "c:\\HemtALT\\R2\\HemtCal.ini");
+		break;
+	case THREE:
+		strcpy(pszFileName, "c:\\HemtALT\\R3\\HemtCal.ini");
+		break;
+	default:
+		strcpy(pszFileName, "c:\\HemtALT\\R1\\HemtCal.ini");
+	}
+
+	CFile iniFile;
+	CFileException fileException;
+
+	if (!iniFile.Open(pszFileName, CFile::modeRead, &fileException))
+	{
+		// no ini file so use defaults
+		// post message
+		CString msg = "No " + (CString)pszFileName + " file found\r\nusing defaults.";
+		AfxMessageBox(msg, MB_OK | MB_ICONINFORMATION);
+
+		// set defaults here .....
+		for (int j = TC1; j < TCE; j++)
+		{
+			for (int k = 0; k < Nmod; k++)
+			{
+				m_temp_b0[k][j] = (TEMP_CAL0);
+				m_temp_b1[k][j] = (TEMP_CAL1);
+			}
+		}
+
+		for (int j = HTR1; j < HTRE; j++)
+		{
+			for (int i = 1; i < Nmod; i++)
+			{
+				m_tempref_b0[i][j] = (TREF_CAL0);
+				m_tempref_b1[i][j] = (TREF_CAL1);
+			}
+		}
+
+		m_tc_cntr = TC_CNTR ;
+		m_tc_dbnd = TC_DBND ;
+		m_tc_toff_min = TC_TOFF;
+		m_tc_ton_max = TC_TON;
+
+		for (int i = 0; i < Nmod; i++)
+		{
+			m_hv_set_b0[i] = (float)HV_COEFF0;  // convert HV float to DAC setting
+			m_hv_set_b1[i] = (float)HV_COEFF1;
+
+			m_hv_rd_b0[i] = (float)A0_ADC2HV;	// convert HV ADC to float HV
+			m_hv_rd_b1[i] = (float)A1_ADC2HV;
+
+			m_alarm_b0[i] = (float)ILK_COEFF0;	// convert
+			m_alarm_b1[i] = (float)ILK_COEFF1;
+
+			m_gate_b0[i] = (float)GT_COEFF0;	// convert float volts to DAC setting
+			m_gate_b1[i] = (float)GT_COEFF1;
+		}
+
+	}
+	else
+	{
+		// using ini file to get defaults for this rack
+
+		UINT  nActual = 0;
+
+		try
+		{
+			int len = (int)iniFile.GetLength();
+			TCHAR *tcData = new TCHAR[len + 1];
+			tcData[len] = '\0';
+
+			nActual = iniFile.Read(tcData, len);
+
+			if (nActual != 0)
+			{  
+				CString szBuff(tcData);
+				CString buf;
+
+				// -----------------------------------------------------
+				// get TC calibration values
+
+				szBuff = tcData;
+				int pos;
+
+				for (int j = 0; j < Nmod; j++)
+				{
+					for (int k = 0; k < 8; k++)
+					{
+						// select case, create string _T("[tc1_cal1]")
+						CString s = _T("[tc");
+						CString a, b;
+						a.Format("%d", j+1);
+						b.Format("%d", k+1);
+						s = s + a + "_cal" + b + "]";
+
+						//
+						int pos = szBuff.Find(s);
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("b0"));
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("="));
+						szBuff.Delete(0, pos + 1);
+						pos = szBuff.Find(_T("\n"));
+						buf = szBuff.Left(pos - 1);
+						buf.TrimLeft(" ");
+						m_temp_b0[j][k] = (float)atof(buf);
+						//
+						szBuff = tcData;
+						pos = szBuff.Find(s);
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("b1"));
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("="));
+						szBuff.Delete(0, pos + 1);
+						pos = szBuff.Find(_T("\n"));
+						buf = szBuff.Left(pos - 1);
+						buf.TrimLeft(" ");
+						m_temp_b1[j][k] = (float)atof(buf);
+						//
+					}
+				}
+
+
+				//
+				//  TREF calibration
+				for (int j = 0; j < Nmod; j++)
+				{
+					for (int k = 0; k < HTRE; k++)
+					{
+						// select case, create string _T("[tc1_ref_cal1]")
+						CString s = _T("[tc");
+						CString a, b;
+						a.Format("%d", j + 1);
+						b.Format("%d", k + 1);
+						s = s + a + "_ref_cal" + b + "]";
+
+						pos = szBuff.Find(s);
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("b0"));
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("="));
+						szBuff.Delete(0, pos + 1);
+						pos = szBuff.Find(_T("\n"));
+						buf = szBuff.Left(pos - 1);
+						buf.TrimLeft(" ");
+						m_tempref_b0[j][k] = (float)atof(buf);
+						//
+						szBuff = tcData;
+						pos = szBuff.Find(s);
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("b1"));
+						szBuff.Delete(0, pos);
+						pos = szBuff.Find(_T("="));
+						szBuff.Delete(0, pos + 1);
+						pos = szBuff.Find(_T("\n"));
+						buf = szBuff.Left(pos - 1);
+						buf.TrimLeft(" ");
+						m_tempref_b1[j][k] = (float)atof(buf);
+					}
+				}
+				//
+				// TC servo parameters
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[tc_count]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("tcntr"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_tc_cntr = atoi(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[tc_dbnd]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("tdbnd"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_tc_dbnd = atoi(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[tc_tmin]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("toff_min"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_tc_toff_min = atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[tc_tmax]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("ton_max"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_tc_ton_max = atoi(buf);
+				//
+				// HV read set data
+				// --------------------------------------------------
+				// get HV calibration values
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvset1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_set_b0[0] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvset1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_set_b1[0] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvset2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_set_b0[1] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvset2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_set_b1[1] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvset3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_set_b0[2] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvset3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_set_b1[2] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvrd1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_rd_b1[0] = (float)atof(buf);
+                //
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvrd1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_rd_b0[0] = (float)atof(buf);	
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvrd2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_rd_b1[1] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvrd2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_rd_b0[1] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvrd3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_rd_b1[2] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[hvrd3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_hv_rd_b0[2] = (float)atof(buf);
+
+				// --------------------------------------------------
+				// get gate calibration values
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[gate1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_gate_b0[0] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[gate1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_gate_b1[0] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[gate2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_gate_b0[1] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[gate2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_gate_b1[1] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[gate3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_gate_b0[2] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[gate3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_gate_b1[2] = (float)atof(buf);
+
+				// ----------------------------------------------
+				// get alarm calibration
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[alarm_cal1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_alarm_b1[0] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[alarm_cal1]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_alarm_b0[0] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[alarm_cal2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_alarm_b1[1] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[alarm_cal2]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_alarm_b0[1] = (float)atof(buf);
+
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[alarm_cal3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b1"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_alarm_b1[2] = (float)atof(buf);
+				//
+				szBuff = tcData;
+				pos = szBuff.Find(_T("[alarm_cal3]"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("b0"));
+				szBuff.Delete(0, pos);
+				pos = szBuff.Find(_T("="));
+				szBuff.Delete(0, pos + 1);
+				pos = szBuff.Find(_T("\n"));
+				buf = szBuff.Left(pos - 1);
+				buf.TrimLeft(" ");
+				m_alarm_b0[2] = (float)atof(buf);
+
+			}
+			else
+			{
+				throw len;
+			}
+		}
+		catch (...)
+		{
+			AfxMessageBox("Error: Reading HemtCal.ini file!");
+		}
+
+		// done
+
+		iniFile.Close();
+	}
+
+	delete[] pszFileName;
+	return (0);
 }
 
 //-----------------------------------------------------------------------------
@@ -3183,7 +3485,6 @@ int CMFCHemtALTDlg::SaveConfigFile(int module)
 	fileBuf= tcData ;
 
 	CString c;
-	int val;
 
 	fileBuf.Append("[run_desc]\r\n");
 	fileBuf.Append("run_desc=");
@@ -3440,7 +3741,6 @@ int CMFCHemtALTDlg::AcquireLogData(int module, bool flag)
 	int v_hv;
 	int num_avg = NUM_AVG_ADC;
 	int retVal = 0;
-	ULONGLONG ETmsec;
 	CString timestamp;
 
 	// ---------------------------------------------------------------------
@@ -3475,7 +3775,7 @@ int CMFCHemtALTDlg::AcquireLogData(int module, bool flag)
 
 	// ---------------------------------------------------------------------
 	// sample Temperature adc readings
-
+	
 	aquireTempValues(module);
 
 	// ---------------------------------------------------------------------
@@ -3608,6 +3908,13 @@ int CMFCHemtALTDlg::aquireTempValues(int module)
 {
 	// sample Temperature adc readings
 
+
+#undef TIME
+#ifdef TIME
+	 SYSTEMTIME start, end;
+	 GetSystemTime(&start);
+#endif
+
 	for (int j = TC1; j < TCE; j++)
 	{
 		int val;
@@ -3619,19 +3926,11 @@ int CMFCHemtALTDlg::aquireTempValues(int module)
 
 		MBT->Module[module].TMEA[j] = val;  // 10ths of a deg C
 	}
+#ifdef TIME
+	GetSystemTime(&end);  // 10/11/15 11.48s to read 8, ~1.4s ea
+#endif
 
 	return (0);
-}
-
-// --------------------------------------------------------------------------
-int  CMFCHemtALTDlg::CnvrtAdc2DegC(enum TC_ID TC, int val, float * degC)
-{
-	// convert raw ADC value to deg C (float) using TC calibration scale factors
-
-		*degC = m_temp_b1[TC] * val + m_temp_b0[TC] ;
-
-	return(0);
-
 }
 
 // ----------------------------------------------------------------------------
@@ -4364,8 +4663,8 @@ void CMFCHemtALTDlg::OnBnClickedRadio7()
 			MBT->Module[module].op_mode = m_operation;
 
 			// Read temperature settings & display
-			AcquireLogData(module);
-			aquireTempValues(module);
+			AcquireLogData(module);             // no use of I2C
+			// aquireTempValues(module);           // takes looong time...
 			UpdateTempVal(module);				// displays
 			SetTestMode(m_operation);
 		}
@@ -4418,7 +4717,7 @@ int CMFCHemtALTDlg::DisplayHighVolts(int module)
 	int val;
 	MBT->ReadAnlg(module, HV_ANLG, &val);  // HV_ANLG
 
-	float volts = ((float)val)*A1_ADC2HV + A0_ADC2HV;
+	float volts = ((float)val)*m_hv_rd_b1[module] + m_hv_rd_b0[module];
 
 	CString str;
 	CEdit* pEdit;
@@ -4428,4 +4727,38 @@ int CMFCHemtALTDlg::DisplayHighVolts(int module)
 
 	return (retVal);
 
+}
+
+// -----------------------------------------------------------------------------
+void CMFCHemtALTDlg::ShutDown(void)
+{
+	// executed on exit / cancel -- shuts down system
+	// need to check for module presence before calling
+
+	if (!MBT->CheckNiDAQ())
+	{
+		for (int j = 0; j < Nmod; j++)
+		{
+			if (CheckModuleInstalled(j))
+			{
+				MBT->SetHvEnable(j, false);  // PSU OFF
+				MBT->SetHvDac(j, 0);
+				MBT->SetGate(j, 0);
+				MBT->DisableTcServos(j);     // TC heaters off
+			}
+		}
+	}
+}
+
+// -----------------------------------------------------------------------------
+int CMFCHemtALTDlg::CheckModuleInstalled(int module)
+{
+	// check for presence of a module
+	// note: ideally would have version # in FPGA register
+	// for now write HV dac with 0x37 and readback.
+	// in case its already set, save value & restore.
+
+	// TODO add implementation
+
+	return (1);
 }

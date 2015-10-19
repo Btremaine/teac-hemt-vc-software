@@ -6,6 +6,15 @@
 // Common.h : common header file for the CBoardTest.cpp
 //
 
+#define HARDWARE_INSTALLED 1
+#undef DEBUG_NO_NIDAQ
+//#define DEBUG_NO_NIDAQ
+
+#ifdef DEBUG_NO_NIDAQ
+#undef HARDWARE_INSTALLED
+#endif
+
+
 	enum State {
 		IDLE = 0,     // Channel idle, heater may or maynot be on
 		PAUSED,       // data collection paused
@@ -34,7 +43,8 @@
 		HTR1 = 0,
 		HTR2 = 1,
 		HTR3 = 2,
-		HTR4 = 3
+		HTR4 = 3,
+		HTRE = 4  // # of heater
 	};
 
 	enum OP_MODE {
