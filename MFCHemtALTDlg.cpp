@@ -604,7 +604,7 @@ void CMFCHemtALTDlg::OnBnClickedRadio6()
 			MBT->Module[module].op_mode = m_operation;
 			
 			// Read temperature settings & display
-			AcquireLogData(module);
+			AcquireLogData(module);             // updates .HVref
 			// aquireTempValues(module);
 			UpdateTempVal(module);				// displays
 			SetTestMode(m_operation);
@@ -776,7 +776,7 @@ void CMFCHemtALTDlg::OnBnClickedButton1()  // Run/Pause button
 			}
 
 			// Update logfile with initial measurement
-			AcquireLogData(module, true) ;
+			AcquireLogData(module, true) ;        // updates .HVref
 			WriteLogFile(module, true);
 			DisplayResults(module) ;
 			
@@ -1104,7 +1104,7 @@ void CMFCHemtALTDlg::OnTimer( UINT nIDEvent1)
 			UpdateAndDispTotalTime(j);
 
 			// Get sensor value of all Nduts & store in logfile with elapsed time
-			AcquireLogData(j);
+			AcquireLogData(j);     // updates .HVref
 			WriteLogFile(j);
 			if (MBT->m_active_module == j)
 			{
@@ -3778,7 +3778,7 @@ int CMFCHemtALTDlg::AcquireLogData(int module, bool flag)
 	
 	aquireTempValues(module);
 
-	// ---------------------------------------------------------------------
+	// =====================================================================
 	// sample & average v_hv
 	v_hv = 0;
 	for (int i = 0; i < num_avg; i++)
@@ -3792,9 +3792,9 @@ int CMFCHemtALTDlg::AcquireLogData(int module, bool flag)
 		v_hv += val;
 	}
 
-	float volt = (A1_ADC2HV*v_hv + A0_ADC2HV) / num_avg;
-	MBT->Module[module].HVref = int(volt * FLOAT2FXD);  // 10ths of a volt
-	// ---------------------------------------------------------------------
+	float volts = (((float)v_hv)*m_hv_rd_b1[module] + m_hv_rd_b0[module]) / num_avg;
+	MBT->Module[module].HVref = int(volts * FLOAT2FXD);  // 10ths of a volt
+	// ======================================================================
 
 	// De-select module
 	MBT->SetModSel(NULL_MODULE);
@@ -3865,8 +3865,8 @@ int CMFCHemtALTDlg::WriteLogFile(int module, bool flag)
 		line.Append(data);
 	}
 
-    // high voltage 
-	float volt = ((float)MBT->Module[module].HV) / FLOAT2FXD;
+    // measured high voltage 
+	float volt = ((float)MBT->Module[module].HVref) / FLOAT2FXD;
 	data.Format(",%.1f", volt);
 	line.Append(data) ;
 
@@ -4663,7 +4663,7 @@ void CMFCHemtALTDlg::OnBnClickedRadio7()
 			MBT->Module[module].op_mode = m_operation;
 
 			// Read temperature settings & display
-			AcquireLogData(module);             // no use of I2C
+			AcquireLogData(module);             // no use of I2C, updates .HVref
 			// aquireTempValues(module);           // takes looong time...
 			UpdateTempVal(module);				// displays
 			SetTestMode(m_operation);
@@ -4702,7 +4702,7 @@ void CMFCHemtALTDlg::OnBnClickedCheck27()
 	}
 
 	// Update display
-	AcquireLogData(module);
+	AcquireLogData(module);   // updates.HVref
 	DisplayResults(module);
 
 }
@@ -4718,6 +4718,7 @@ int CMFCHemtALTDlg::DisplayHighVolts(int module)
 	MBT->ReadAnlg(module, HV_ANLG, &val);  // HV_ANLG
 
 	float volts = ((float)val)*m_hv_rd_b1[module] + m_hv_rd_b0[module];
+	MBT->Module[module].HVref = int(volts * FLOAT2FXD);  // 10ths of a volt
 
 	CString str;
 	CEdit* pEdit;
