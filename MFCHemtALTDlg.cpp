@@ -947,9 +947,18 @@ void CMFCHemtALTDlg::OnBnClickedButton3()    // END button
 					KillTimer(m_timer_hndl);
 				}
 			}
-			
+
 			// Close log file
-			CloseLogFile(module) ;
+			CloseLogFile(module);
+
+			// Shutdown high voltage and Temp Control
+			if (CheckModuleInstalled(module))
+			{
+				MBT->SetHvEnable(module, false);  // PSU OFF
+				MBT->SetHvDac(module, 0);
+				MBT->SetGate(module, 0);
+				MBT->DisableTcServos(module);     // TC heaters off
+			}
 
 			break ;
 		default:
